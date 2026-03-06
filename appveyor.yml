@@ -19,7 +19,7 @@ install:
         -Password (ConvertTo-SecureString -String $env:CERT_PASSWORD -Force -AsPlainText)
 
 build_script:
-  - msbuild RodnikiRadio.sln /m ^
+  - msbuild RodnikiRadio\RodnikiRadio.sln /m ^
       /t:Restore,Build,Publish ^
       /p:Configuration=Release ^
       /p:Platform=ARM ^
@@ -30,8 +30,10 @@ build_script:
       /p:PackageCertificatePassword=%CERT_PASSWORD%
 
 after_build:
-  - dir /s *.appx
+  - dir /s AppPackages
 
 artifacts:
   - path: '**\*.appx'
     name: RodnikiRadio_ARM
+  - path: RodnikiRadio.pfx
+    name: RodnikiRadio_PFX
