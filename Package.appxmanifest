@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
-  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/variant"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
   IgnorableNamespaces="uap mp uap3">
@@ -35,14 +35,6 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
-
-      <Extensions>
-        <uap:Extension Category="windows.mediaPlayback">
-          <uap:MediaPlayback>
-            <uap:Codec Name="AAC Decoder" />
-          </uap:MediaPlayback>
-        </uap:Extension>
-      </Extensions>
     </Application>
   </Applications>
 
