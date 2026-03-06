@@ -37,10 +37,10 @@
       </uap:VisualElements>
 
       <Extensions>
-        <uap:Extension Category="windows.backgroundTasks" EntryPoint="RodnikiRadio.App">
-          <uap:BackgroundTasks>
-            <uap:Task Type="audio" />
-          </uap:BackgroundTasks>
+        <uap:Extension Category="windows.mediaPlayback">
+          <uap:MediaPlayback>
+            <uap:Codec Name="AAC Decoder" />
+          </uap:MediaPlayback>
         </uap:Extension>
       </Extensions>
     </Application>
