@@ -4,24 +4,23 @@ platform: ARM
 
 configuration: Release
 
-install:
-  - ps: |
-      # Устанавливаем Windows 10 SDK 10586 если нет
-      $sdkPath = "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.10586.0"
-      if (!(Test-Path $sdkPath)) {
-        Write-Host "Installing Windows 10 SDK 10586..."
-        choco install windows-sdk-10.0 --version 10.0.10586.0 -y --no-progress
-      } else {
-        Write-Host "SDK 10586 already present"
-      }
-
-      # Показываем доступные SDK
-      Write-Host "=== Available SDKs ==="
-      Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\" -ErrorAction SilentlyContinue | Select-Object Name
-
 before_build:
   - ps: |
-      # Генерируем сертификат для подписи
+      Write-Host "=== Windows Kits ==="
+      Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\" -ErrorAction SilentlyContinue | Select-Object Name
+      Write-Host "=== References ==="
+      Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\References\" -ErrorAction SilentlyContinue | Select-Object Name
+
+      # Ищем Windows.winmd
+      $winmd = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\" -Recurse -Filter "Windows.winmd" -ErrorAction SilentlyContinue | Select-Object -First 1
+      if ($winmd) {
+        Write-Host "Windows.winmd: $($winmd.FullName)"
+        $env:WINMD_DIR = $winmd.DirectoryName
+      } else {
+        Write-Host "ERROR: Windows.winmd not found!"
+      }
+
+      # Генерируем сертификат
       $cert = New-SelfSignedCertificate `
         -Type Custom `
         -Subject "CN=RadioRodniki" `
@@ -31,17 +30,12 @@ before_build:
         -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
       $env:CERT_THUMBPRINT = $cert.Thumbprint
       Write-Host "Cert: $($cert.Thumbprint)"
-
-      # Экспортируем .cer для установки на телефон
-      Export-Certificate -Cert $cert `
-        -FilePath "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.cer" -Type CERT
-      Write-Host "Certificate exported"
-
-  # NuGet restore
-  - nuget restore RadioRodniki.sln
+      Export-Certificate -Cert $cert -FilePath "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.cer" -Type CERT
 
 build_script:
   - ps: |
+      # Передаём путь к SDK явно через параметры
+      $sdk = "C:\Program Files (x86)\Windows Kits\10\"
       msbuild RadioRodniki.sln `
         /p:Configuration=Release `
         /p:Platform=ARM `
@@ -50,19 +44,19 @@ build_script:
         /p:PackageCertificateThumbprint="$env:CERT_THUMBPRINT" `
         /p:UapAppxPackageBuildMode=SideloadOnly `
         /p:AppxPackageDir="$env:APPVEYOR_BUILD_FOLDER\AppxPackages\\" `
+        /p:WindowsSDKDir="$sdk" `
+        /p:TargetPlatformVersion=10.0.10586.0 `
         /verbosity:normal
 
 after_build:
   - ps: |
-      Write-Host "=== Looking for appx ==="
-      Get-ChildItem -Path "AppxPackages" -Recurse -ErrorAction SilentlyContinue
-      $appx = Get-ChildItem -Path "AppxPackages" -Recurse -Filter "*.appx" `
-        -ErrorAction SilentlyContinue | Select-Object -First 1
+      $appx = Get-ChildItem -Path "AppxPackages" -Recurse -Filter "*.appx" -ErrorAction SilentlyContinue | Select-Object -First 1
       if ($appx) {
         Write-Host "Found: $($appx.FullName)"
         Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
       } else {
-        Write-Host "appx not found"
+        Write-Host "No appx found"
+        Get-ChildItem -Path "AppxPackages" -Recurse -ErrorAction SilentlyContinue
       }
 
 artifacts:
