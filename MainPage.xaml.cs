@@ -5,6 +5,7 @@ using Windows.UI.Xaml.Controls;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
+using Windows.Web.Http.Filters; // Необходимо для User-Agent
 
 namespace RodnikiRadio
 {
@@ -23,11 +24,16 @@ namespace RodnikiRadio
         public MainPage()
         {
             this.InitializeComponent();
-            
+
+            // Настройка User-Agent на уровне протокола
+            var filter = new HttpBaseProtocolFilter();
+            // Маскируемся под современный Edge на Windows 10
+            filter.UserAgentOverride = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edge/120.0.0.0";
+
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
             
-            // Настройка системных кнопок управления (экран блокировки)
+            // Включаем системные элементы управления (кнопки громкости, экран блокировки)
             var smtc = _mediaPlayer.SystemMediaTransportControls;
             smtc.IsEnabled = true;
             smtc.IsPlayEnabled = true;
@@ -227,10 +233,17 @@ namespace RodnikiRadio
         {
             if (RadioList.SelectedItem is RadioStation selected)
             {
-                _mediaPlayer.Source = MediaSource.CreateFromUri(new Uri(selected.StreamUrl));
-                UpdateDisplayInfo(selected.Name);
-                _mediaPlayer.Play();
-                StatusText.Text = "Играет: " + selected.Name;
+                try
+                {
+                    _mediaPlayer.Source = MediaSource.CreateFromUri(new Uri(selected.StreamUrl));
+                    UpdateDisplayInfo(selected.Name);
+                    _mediaPlayer.Play();
+                    StatusText.Text = "Играет: " + selected.Name;
+                }
+                catch (Exception)
+                {
+                    StatusText.Text = "Ошибка подключения к станции";
+                }
             }
         }
 
