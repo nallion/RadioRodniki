@@ -1,13 +1,20 @@
 image: Visual Studio 2019
-
-platform:
-  - ARM
-
-configuration:
-  - Release
+platform: - ARM
+configuration: - Release
 
 before_build:
   - nuget restore RodnikiRadio.sln
+  - ps: |
+      # 1. Создаем сертификат в памяти
+      $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=AppVeyorSign" -HashAlgorithm sha256 -KeyLength 2048 -CertStoreLocation "Cert:\CurrentUser\My"
+      
+      # 2. Устанавливаем пароль
+      $password = ConvertTo-SecureString "1234" -AsPlainText -Force
+      
+      # 3. Экспортируем его в файл AppVeyorKey.pfx, который ожидает .csproj
+      Export-PfxCertificate -Cert $cert -FilePath "AppVeyorKey.pfx" -Password $password
+      
+      Write-Host "Self-signed certificate created successfully."
 
 build:
   project: RodnikiRadio.sln
