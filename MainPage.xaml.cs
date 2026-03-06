@@ -15,49 +15,46 @@ namespace RodnikiRadio
         {
             this.InitializeComponent();
             
-            // Инициализируем плеер
             _mediaPlayer = new MediaPlayer();
 
-            // 1. КАТЕГОРИЯ АУДИО — Это заставляет систему НЕ выключать звук при блокировке
+            // 1. Указываем категорию аудио для работы в фоне
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
 
-            // 2. ИНТЕГРАЦИЯ С СИСТЕМОЙ — Включаем кнопки управления (SMTC)
-            var commandManager = _mediaPlayer.CommandManager;
-            commandManager.IsEnabled = true;
+            // 2. Настраиваем системные элементы управления напрямую
+            var smtc = _mediaPlayer.SystemMediaTransportControls;
+            smtc.IsEnabled = true;
+            smtc.IsPlayEnabled = true;
+            smtc.IsPauseEnabled = true;
             
-            // Поскольку это прямой эфир, кнопки "вперед/назад" нам не нужны
-            commandManager.IsNextEnabled = false;
-            commandManager.IsPreviousEnabled = false;
+            // Явно отключаем кнопки перемотки, если они поддерживаются
+            smtc.IsNextEnabled = false;
+            smtc.IsPreviousEnabled = false;
 
-            // 3. МЕТАДАННЫЕ — Без них кнопки на экране блокировки часто не нажимаются
-            UpdateDisplayInfo();
+            // 3. Обновляем информацию на экране
+            UpdateDisplayInfo(smtc);
 
-            // 4. ИСТОЧНИК — Ссылка на поток
             _mediaPlayer.Source = MediaSource.CreateFromUri(new Uri("https://rodniki.hostingradio.ru/rodniki32.aacp"));
         }
 
-        private void UpdateDisplayInfo()
+        private void UpdateDisplayInfo(SystemMediaTransportControls smtc)
         {
-            // Этот блок заполняет текст в системной "шторке" громкости
-            var updater = _mediaPlayer.SystemMediaTransportControls.DisplayUpdater;
+            var updater = smtc.DisplayUpdater;
             updater.Type = MediaPlaybackType.Music;
             updater.MusicProperties.Title = "Радио Родники";
             updater.MusicProperties.Artist = "Прямой эфир";
-            
-            // Обновляем интерфейс системы
             updater.Update();
         }
 
         private void PlayButton_Click(object sender, RoutedEventArgs e)
         {
             _mediaPlayer.Play();
-            StatusText.Text = "Воспроизведение...";
+            if (StatusText != null) StatusText.Text = "Воспроизведение...";
         }
 
         private void PauseButton_Click(object sender, RoutedEventArgs e)
         {
             _mediaPlayer.Pause();
-            StatusText.Text = "Пауза";
+            if (StatusText != null) StatusText.Text = "Пауза";
         }
     }
 }
