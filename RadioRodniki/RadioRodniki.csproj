@@ -56,11 +56,5 @@
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\WideLogo.png" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\BackgroundAudioTask\BackgroundAudioTask.csproj">
-      <Project>{22222222-2222-2222-2222-222222222222}</Project>
-      <Name>BackgroundAudioTask</Name>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
 </Project>

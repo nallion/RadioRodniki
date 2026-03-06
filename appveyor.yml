@@ -18,7 +18,7 @@ before_build:
       Export-Certificate -Cert $cert -FilePath "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.cer" -Type CERT
       Write-Host "Cert: $($cert.Thumbprint)"
 
-      # Удаляем глобальный WinFx targets который перехватывает XAML проекты
+      # Убираем WinFx.targets чтобы он не перехватывал XAML проект
       $winfx = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\Microsoft.WinFx.targets"
       if (Test-Path $winfx) {
         Rename-Item $winfx "$winfx.bak" -ErrorAction SilentlyContinue
@@ -27,13 +27,13 @@ before_build:
 
 build_script:
   - ps: |
-      $csc   = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe"
-      $winmd = "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.19041.0\Windows.winmd"
-      $refs  = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5"
+      $csc     = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe"
+      $winmd   = "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.19041.0\Windows.winmd"
+      $refs    = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5"
       $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe"
 
-      # ── Шаг 1: BackgroundAudioTask ──
-      Write-Host "=== BackgroundAudioTask ==="
+      # ── Шаг 1: BackgroundAudioTask через csc ──
+      Write-Host "=== Step 1: BackgroundAudioTask ==="
       & $csc /noconfig /nostdlib+ /platform:ARM /target:winmdobj /langversion:7.3 /optimize+ /utf8output `
         /reference:"$winmd" `
         /reference:"$refs\mscorlib.dll" `
@@ -46,8 +46,8 @@ build_script:
       if ($LASTEXITCODE -ne 0) { throw "BackgroundAudioTask failed" }
       Write-Host "BackgroundAudioTask OK"
 
-      # ── Шаг 2: Главное приложение через MSBuild (теперь без WinFx) ──
-      Write-Host "=== RadioRodniki via MSBuild ==="
+      # ── Шаг 2: Главное приложение через MSBuild (WinFx уже отключён) ──
+      Write-Host "=== Step 2: RadioRodniki via MSBuild ==="
       & $msbuild RadioRodniki\RadioRodniki.csproj `
         /p:Configuration=Release `
         /p:Platform=ARM `
@@ -60,15 +60,34 @@ build_script:
         /verbosity:normal
       if ($LASTEXITCODE -ne 0) { throw "RadioRodniki MSBuild failed" }
 
-after_build:
-  - ps: |
+      # ── Шаг 3: Добавляем BackgroundAudioTask.winmd в пакет ──
+      Write-Host "=== Step 3: Inject BackgroundAudioTask into appx ==="
       $appx = Get-ChildItem "AppxPackages" -Recurse -Filter "*.appx" -ErrorAction SilentlyContinue | Select-Object -First 1
       if ($appx) {
-        Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
+        $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter "signtool.exe" |
+                    Where-Object { $_.FullName -notlike "*arm*" } | Select-Object -Last 1
+        $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter "makeappx.exe" |
+                    Where-Object { $_.FullName -notlike "*arm*" } | Select-Object -Last 1
+
+        # Распаковываем appx
+        $unpackDir = "$env:APPVEYOR_BUILD_FOLDER\AppxUnpack"
+        & $makeappx.FullName unpack /p $appx.FullName /d $unpackDir /l
+        # Копируем winmd
+        Copy-Item "BackgroundAudioTask\bin\ARM\Release\BackgroundAudioTask.winmdobj" "$unpackDir\BackgroundAudioTask.winmd"
+        # Перепаковываем
+        $finalAppx = "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
+        & $makeappx.FullName pack /d $unpackDir /p $finalAppx /l
+        # Подписываем
+        & $signtool.FullName sign /fd SHA256 /sha1 "$env:CERT_THUMBPRINT" $finalAppx
+        Write-Host "Final appx: $finalAppx"
+      }
+
+after_build:
+  - ps: |
+      if (Test-Path "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx") {
         Write-Host "appx ready"
       } else {
         Write-Host "No appx"
-        Get-ChildItem "AppxPackages" -Recurse -ErrorAction SilentlyContinue
       }
 
 artifacts:
