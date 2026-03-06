@@ -40,7 +40,15 @@ build_script:
       Write-Host "BackgroundAudioTask OK"
 
       # ── Шаг 2: Компилируем главное приложение ──
-      Write-Host "=== RadioRodniki main app ==="
+      # Ищем System.Runtime.WindowsRuntime.UI.Xaml.dll
+      $uiXaml = Get-ChildItem "C:\Program Files (x86)\Reference Assemblies" -Recurse -Filter "System.Runtime.WindowsRuntime.UI.Xaml.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+      if (-not $uiXaml) {
+        $uiXaml = Get-ChildItem "C:\Windows\Microsoft.NET" -Recurse -Filter "System.Runtime.WindowsRuntime.UI.Xaml.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+      }
+      Write-Host "UI.Xaml dll: $($uiXaml.FullName)"
+      $uiXamlRef = if ($uiXaml) { "/reference:`"$($uiXaml.FullName)`"" } else { "" }
+
+      Write-Host "=== RadioRodniki main app ===" 
       & $csc /noconfig /nostdlib+ /platform:ARM /target:appcontainerexe /langversion:7.3 /optimize+ /utf8output `
         /reference:"$winmd" `
         /reference:"$refs\mscorlib.dll" `
@@ -48,6 +56,7 @@ build_script:
         /reference:"$refs\System.Runtime.InteropServices.WindowsRuntime.dll" `
         /reference:"$refs\System.ObjectModel.dll" `
         /reference:"$refs\System.Runtime.WindowsRuntime.dll" `
+        $uiXamlRef `
         /out:"RadioRodniki\bin\ARM\Release\RadioRodniki.exe" `
         RadioRodniki\App.xaml.cs `
         RadioRodniki\App.g.cs `
