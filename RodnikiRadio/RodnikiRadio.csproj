@@ -1,4 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>uap10.0.14393</TargetFramework>
     <TargetPlatformMinVersion>10.0.14393.0</TargetPlatformMinVersion>
@@ -7,4 +8,5 @@
     <RootNamespace>RodnikiRadio</RootNamespace>
     <ApplicationManifest>Package.appxmanifest</ApplicationManifest>
   </PropertyGroup>
+
 </Project>
