@@ -19,7 +19,7 @@ install:
         -Password (ConvertTo-SecureString -String $env:CERT_PASSWORD -Force -AsPlainText)
 
 build_script:
-  - msbuild RodnikiRadio\RodnikiRadio.sln /m ^
+  - msbuild RodnikiRadio.sln /m ^
       /t:Restore,Build,Publish ^
       /p:Configuration=Release ^
       /p:Platform=ARM ^
