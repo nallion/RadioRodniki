@@ -18,22 +18,29 @@ before_build:
       Export-Certificate -Cert $cert -FilePath "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.cer" -Type CERT
       Write-Host "Cert: $($cert.Thumbprint)"
 
-      # Убираем WinFx.targets чтобы он не перехватывал XAML проект
+      # Нейтрализуем WinFx.targets — он глобально перехватывает MarkupCompilePass1
+      # и ломает UWP (AppContainerExe) сборку ошибкой BG1004
       $winfx = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\Microsoft.WinFx.targets"
       if (Test-Path $winfx) {
-        Rename-Item $winfx "$winfx.bak" -ErrorAction SilentlyContinue
-        Write-Host "Disabled WinFx.targets"
+        takeown /f $winfx 2>&1 | Out-Null
+        icacls $winfx /grant "${env:USERNAME}:F" /c 2>&1 | Out-Null
+        $empty = '<?xml version="1.0" encoding="utf-8"?><Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"></Project>'
+        [System.IO.File]::WriteAllText($winfx, $empty, [System.Text.Encoding]::UTF8)
+        Write-Host "WinFx.targets neutralized (size=$(((Get-Item $winfx).Length)))"
+      } else {
+        Write-Host "WinFx.targets not found"
       }
 
 build_script:
   - ps: |
+      $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe"
       $csc     = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe"
       $winmd   = "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.19041.0\Windows.winmd"
       $refs    = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5"
-      $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe"
 
-      # ── Шаг 1: BackgroundAudioTask через csc ──
+      # ── Шаг 1: BackgroundAudioTask через csc напрямую ──
       Write-Host "=== Step 1: BackgroundAudioTask ==="
+      New-Item -ItemType Directory -Force "BackgroundAudioTask\bin\ARM\Release" | Out-Null
       & $csc /noconfig /nostdlib+ /platform:ARM /target:winmdobj /langversion:7.3 /optimize+ /utf8output `
         /reference:"$winmd" `
         /reference:"$refs\mscorlib.dll" `
@@ -43,11 +50,14 @@ build_script:
         /out:"BackgroundAudioTask\bin\ARM\Release\BackgroundAudioTask.winmdobj" `
         BackgroundAudioTask\MyBackgroundAudioTask.cs `
         BackgroundAudioTask\Properties\AssemblyInfo.cs
-      if ($LASTEXITCODE -ne 0) { throw "BackgroundAudioTask failed" }
+      if ($LASTEXITCODE -ne 0) { throw "BackgroundAudioTask compile failed" }
+      # winmdobj -> winmd для ссылки из главного проекта
+      Copy-Item "BackgroundAudioTask\bin\ARM\Release\BackgroundAudioTask.winmdobj" `
+                "BackgroundAudioTask\bin\ARM\Release\BackgroundAudioTask.winmd" -Force
       Write-Host "BackgroundAudioTask OK"
 
-      # ── Шаг 2: Главное приложение через MSBuild (WinFx уже отключён) ──
-      Write-Host "=== Step 2: RadioRodniki via MSBuild ==="
+      # ── Шаг 2: Главное приложение через MSBuild ──
+      Write-Host "=== Step 2: RadioRodniki MSBuild ==="
       & $msbuild RadioRodniki\RadioRodniki.csproj `
         /p:Configuration=Release `
         /p:Platform=ARM `
@@ -60,34 +70,14 @@ build_script:
         /verbosity:normal
       if ($LASTEXITCODE -ne 0) { throw "RadioRodniki MSBuild failed" }
 
-      # ── Шаг 3: Добавляем BackgroundAudioTask.winmd в пакет ──
-      Write-Host "=== Step 3: Inject BackgroundAudioTask into appx ==="
+      # ── Шаг 3: Находим appx и копируем ──
       $appx = Get-ChildItem "AppxPackages" -Recurse -Filter "*.appx" -ErrorAction SilentlyContinue | Select-Object -First 1
       if ($appx) {
-        $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter "signtool.exe" |
-                    Where-Object { $_.FullName -notlike "*arm*" } | Select-Object -Last 1
-        $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter "makeappx.exe" |
-                    Where-Object { $_.FullName -notlike "*arm*" } | Select-Object -Last 1
-
-        # Распаковываем appx
-        $unpackDir = "$env:APPVEYOR_BUILD_FOLDER\AppxUnpack"
-        & $makeappx.FullName unpack /p $appx.FullName /d $unpackDir /l
-        # Копируем winmd
-        Copy-Item "BackgroundAudioTask\bin\ARM\Release\BackgroundAudioTask.winmdobj" "$unpackDir\BackgroundAudioTask.winmd"
-        # Перепаковываем
-        $finalAppx = "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
-        & $makeappx.FullName pack /d $unpackDir /p $finalAppx /l
-        # Подписываем
-        & $signtool.FullName sign /fd SHA256 /sha1 "$env:CERT_THUMBPRINT" $finalAppx
-        Write-Host "Final appx: $finalAppx"
-      }
-
-after_build:
-  - ps: |
-      if (Test-Path "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx") {
-        Write-Host "appx ready"
+        Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
+        Write-Host "appx ready: $($appx.FullName)"
       } else {
-        Write-Host "No appx"
+        Write-Host "WARNING: no appx found"
+        Get-ChildItem "AppxPackages" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
       }
 
 artifacts:
