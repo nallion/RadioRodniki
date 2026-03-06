@@ -3,17 +3,38 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:RodnikiRadio"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-        <TextBlock Text="Радио Родники" FontSize="32" Margin="0,0,0,20"/>
-        
-        <Button Content="ИГРАТЬ" Click="PlayButton_Click" Width="200" Height="60"/>
-        <Button Content="СТОП" Click="PauseButton_Click" Width="200" Height="60" Margin="0,10,0,0"/>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-        <TextBlock x:Name="StatusText" Text="Готов к работе" HorizontalAlignment="Center" Margin="0,20,0,0"/>
-    </StackPanel>
+        <Border Background="{ThemeResource SystemControlHighlightAccentBrush}" Padding="10">
+            <TextBlock Text="FM PLAY RUSSIA" FontSize="20" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+        </Border>
+
+        <ListView x:Name="RadioList" Grid.Row="1" SelectionChanged="RadioList_SelectionChanged" Margin="5">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:RadioStation">
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <Border CornerRadius="4" Width="60" Height="60" Margin="0,0,12,0">
+                            <Image Source="{Binding LogoUrl}" Stretch="UniformToFill"/>
+                        </Border>
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="18" TextWrapping="Wrap" MaxWidth="280"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <StackPanel Grid.Row="2" Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}" Padding="15">
+            <TextBlock x:Name="StatusText" Text="Выберите радиостанцию" HorizontalAlignment="Center" Margin="0,0,0,10" FontWeight="SemiBold"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="▶ Play" Click="PlayButton_Click" Width="120" Height="50" Margin="5"/>
+                <Button Content="⏸ Pause" Click="PauseButton_Click" Width="120" Height="50" Margin="5"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
 </Page>
