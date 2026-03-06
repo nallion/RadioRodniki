@@ -1,11 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- UWP TargetFramework для Windows 10 Mobile -->
     <TargetFramework>uap10.0.14393</TargetFramework>
     <TargetPlatformMinVersion>10.0.14393.0</TargetPlatformMinVersion>
     <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
+
+    <!-- Тип выхода: UWP AppContainerExe -->
     <OutputType>AppContainerExe</OutputType>
+
+    <!-- Корневой namespace -->
     <RootNamespace>RodnikiRadio</RootNamespace>
+
+    <!-- Манифест приложения -->
     <ApplicationManifest>Package.appxmanifest</ApplicationManifest>
   </PropertyGroup>
 
