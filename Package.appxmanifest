@@ -41,10 +41,10 @@
       </uap:VisualElements>
 
       <Extensions>
-        <uap:Extension Category="windows.backgroundTasks">
-          <uap:BackgroundTasks>
-            <uap:Task Type="audio" />
-          </uap:BackgroundTasks>
+        <uap:Extension Category="windows.mediaPlayback">
+          <uap:MediaPlayback>
+             <uap:Codec Name="AAC" />
+          </uap:MediaPlayback>
         </uap:Extension>
       </Extensions>
     </Application>
