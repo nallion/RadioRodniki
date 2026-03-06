@@ -1,4 +1,4 @@
-image: Visual Studio 2022
+image: Visual Studio 2019
 
 configuration: Release
 platform: ARM
@@ -20,18 +20,18 @@ install:
 
 build_script:
   - msbuild RodnikiRadio.sln /m ^
+      /t:Restore,Build,Publish ^
       /p:Configuration=Release ^
       /p:Platform=ARM ^
-      /p:AppxBundle=Never ^
       /p:UapAppxPackageBuildMode=SideloadOnly ^
-      /p:GenerateAppxPackageOnBuild=true ^
+      /p:AppxBundle=Never ^
       /p:AppxPackageDir=AppPackages\ ^
       /p:PackageCertificateKeyFile=RodnikiRadio.pfx ^
       /p:PackageCertificatePassword=%CERT_PASSWORD%
 
 after_build:
-  - dir AppPackages /s
+  - dir /s *.appx
 
 artifacts:
-  - path: AppPackages\**\*.appx
+  - path: '**\*.appx'
     name: RodnikiRadio_ARM
