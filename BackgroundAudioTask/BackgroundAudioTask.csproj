@@ -5,7 +5,8 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">ARM</Platform>
     <ProjectGuid>{22222222-2222-2222-2222-222222222222}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <!-- WinMDObj = Windows Runtime Component, именно это нужно для BackgroundTask -->
+    <OutputType>winmdobj</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>BackgroundAudioTask</RootNamespace>
     <AssemblyName>BackgroundAudioTask</AssemblyName>

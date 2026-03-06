@@ -1,15 +1,11 @@
 using System;
 using Windows.ApplicationModel.Background;
+using Windows.Foundation.Collections;
 using Windows.Media;
 using Windows.Media.Playback;
-using Windows.Storage.Streams;
 
 namespace BackgroundAudioTask
 {
-    /// <summary>
-    /// Фоновая аудио-задача. Запускается системой когда UI-приложение
-    /// уходит в фон или экран выключается. Продолжает играть независимо.
-    /// </summary>
     public sealed class MyBackgroundAudioTask : IBackgroundTask
     {
         private const string StreamUrl = "https://rodniki.hostingradio.ru/rodniki32.aacp";
@@ -17,39 +13,30 @@ namespace BackgroundAudioTask
 
         private BackgroundTaskDeferral _deferral;
         private SystemMediaTransportControls _smtc;
-        private MediaPlayer _player;
         private bool _isRunning = false;
 
         public void Run(IBackgroundTaskInstance taskInstance)
         {
-            // Берём deferral — без него задача завершится сразу
             _deferral = taskInstance.GetDeferral();
             taskInstance.Canceled += OnCanceled;
 
-            // Получаем медиаплеер
-            _player = BackgroundMediaPlayer.Current;
+            var player = BackgroundMediaPlayer.Current;
 
-            // Настраиваем системные медиаэлементы управления
-            // (кнопки на экране блокировки, гарнитура)
             _smtc = SystemMediaTransportControls.GetForCurrentView();
-            _smtc.IsEnabled = true;
-            _smtc.IsPlayEnabled = true;
+            _smtc.IsEnabled    = true;
+            _smtc.IsPlayEnabled  = true;
             _smtc.IsPauseEnabled = true;
-            _smtc.IsStopEnabled = true;
+            _smtc.IsStopEnabled  = true;
             _smtc.ButtonPressed += OnSmtcButtonPressed;
 
-            // Обновляем метаданные для экрана блокировки
             UpdateSmtcDisplay();
 
-            // Подписываемся на события плеера
-            _player.MediaOpened += OnMediaOpened;
-            _player.MediaFailed += OnMediaFailed;
-            _player.MediaEnded  += OnMediaEnded;
+            player.MediaOpened += OnMediaOpened;
+            player.MediaFailed += OnMediaFailed;
+            player.MediaEnded  += OnMediaEnded;
 
-            // Слушаем сообщения от UI
             BackgroundMediaPlayer.MessageReceivedFromForeground += OnMessageFromForeground;
 
-            // Начинаем воспроизведение
             _isRunning = true;
             StartStream();
         }
@@ -58,15 +45,14 @@ namespace BackgroundAudioTask
         {
             try
             {
-                // Cache-bust чтобы не получить закешированный поток
+                var player = BackgroundMediaPlayer.Current;
                 var url = StreamUrl + "?_=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                _player.AutoPlay = true;
-                _player.SetUriSource(new Uri(url));
+                player.AutoPlay = true;
+                player.SetUriSource(new Uri(url));
                 _smtc.PlaybackStatus = MediaPlaybackStatus.Playing;
             }
             catch
             {
-                // Повторяем через 3 секунды
                 System.Threading.Tasks.Task.Delay(RetryDelayMs).ContinueWith(_ =>
                 {
                     if (_isRunning) StartStream();
@@ -86,21 +72,17 @@ namespace BackgroundAudioTask
         private void OnMediaOpened(MediaPlayer sender, object args)
         {
             _smtc.PlaybackStatus = MediaPlaybackStatus.Playing;
-            // Уведомляем UI что всё ок
-            ValueSet message = new ValueSet();
-            message.Add("State", "Playing");
-            BackgroundMediaPlayer.SendMessageToForeground(message);
+            var msg = new ValueSet();
+            msg.Add("State", "Playing");
+            BackgroundMediaPlayer.SendMessageToForeground(msg);
         }
 
         private void OnMediaFailed(MediaPlayer sender, MediaPlayerFailedEventArgs args)
         {
             _smtc.PlaybackStatus = MediaPlaybackStatus.Stopped;
-            ValueSet message = new ValueSet();
-            message.Add("State", "Error");
-            message.Add("Error", args.ErrorMessage);
-            BackgroundMediaPlayer.SendMessageToForeground(message);
-
-            // Переподключаемся
+            var msg = new ValueSet();
+            msg.Add("State", "Error");
+            BackgroundMediaPlayer.SendMessageToForeground(msg);
             System.Threading.Tasks.Task.Delay(RetryDelayMs).ContinueWith(_ =>
             {
                 if (_isRunning) StartStream();
@@ -109,7 +91,6 @@ namespace BackgroundAudioTask
 
         private void OnMediaEnded(MediaPlayer sender, object args)
         {
-            // Поток радио не должен заканчиваться — переподключаемся
             if (_isRunning) StartStream();
         }
 
@@ -122,11 +103,10 @@ namespace BackgroundAudioTask
                     _isRunning = true;
                     StartStream();
                     break;
-
                 case SystemMediaTransportControlsButton.Pause:
                 case SystemMediaTransportControlsButton.Stop:
                     _isRunning = false;
-                    _player.Pause();
+                    BackgroundMediaPlayer.Current.Pause();
                     _smtc.PlaybackStatus = MediaPlaybackStatus.Paused;
                     break;
             }
@@ -134,12 +114,11 @@ namespace BackgroundAudioTask
 
         private void OnMessageFromForeground(object sender, MediaPlayerDataReceivedEventArgs e)
         {
-            // Команды от UI
             if (e.Data.ContainsKey("Command"))
             {
                 var cmd = e.Data["Command"].ToString();
-                if (cmd == "Play")  { _isRunning = true;  StartStream(); }
-                if (cmd == "Stop")  { _isRunning = false; _player.Pause(); }
+                if (cmd == "Play") { _isRunning = true;  StartStream(); }
+                if (cmd == "Stop") { _isRunning = false; BackgroundMediaPlayer.Current.Pause(); }
             }
         }
 
@@ -149,9 +128,10 @@ namespace BackgroundAudioTask
             try
             {
                 _smtc.ButtonPressed -= OnSmtcButtonPressed;
-                _player.MediaOpened -= OnMediaOpened;
-                _player.MediaFailed -= OnMediaFailed;
-                _player.MediaEnded  -= OnMediaEnded;
+                var player = BackgroundMediaPlayer.Current;
+                player.MediaOpened -= OnMediaOpened;
+                player.MediaFailed -= OnMediaFailed;
+                player.MediaEnded  -= OnMediaEnded;
                 BackgroundMediaPlayer.MessageReceivedFromForeground -= OnMessageFromForeground;
                 BackgroundMediaPlayer.Shutdown();
             }
