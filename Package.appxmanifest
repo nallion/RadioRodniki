@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" 
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" 
+         IgnorableNamespaces="uap">
+  <Identity Name="RodnikiRadio" Publisher="CN=YourName" Version="1.0.0.0" />
+  <Properties>
+    <DisplayName>Rodniki Radio</DisplayName>
+    <PublisherDisplayName>Developer</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.10240.0" MaxVersionTested="10.0.19041.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="x-generate" />
+  </Resources>
+  <Applications>
+    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="RodnikiRadio.App">
+      <uap:VisualElements DisplayName="Rodniki Radio" Square150x150Logo="Assets\Square150x150Logo.png" 
+                          Square44x44Logo="Assets\Square44x44Logo.png" Description="Radio Player" 
+                          BackgroundColor="transparent">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <uap:Extension Category="windows.backgroundTasks">
+          <uap:BackgroundTasks>
+            <uap:Task Type="audio" />
+          </uap:BackgroundTasks>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <Capability Name="internetClient" />
+  </Capabilities>
+</Package>

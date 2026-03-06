@@ -1,62 +1,26 @@
-# appveyor.yml для RadioRodniki (Lumia ARM)
 image: Visual Studio 2019
 
-configuration: Release
-platform: ARM
+platform:
+  - x86
+  - ARM
 
-environment:
-  CERT_PASSWORD: 1234
+configuration:
+  - Release
 
-# --- Установка сертификата и проверка репозитория ---
-install:
-  - ps: |
-      Write-Host "=== Проверка содержимого репозитория после клона ==="
-      Get-ChildItem -Recurse
+before_build:
+  - nuget restore RodnikiRadio.sln
 
-      # Генерация self-signed сертификата для подписи AppX
-      $cert = New-SelfSignedCertificate `
-        -Type CodeSigningCert `
-        -Subject "CN=RodnikiRadio" `
-        -CertStoreLocation "cert:\CurrentUser\My"
+build:
+  project: RodnikiRadio.sln
+  verbosity: minimal
 
-      Export-PfxCertificate `
-        -cert $cert `
-        -FilePath RodnikiRadio.pfx `
-        -Password (ConvertTo-SecureString -String $env:CERT_PASSWORD -Force -AsPlainText)
-
-      Write-Host "=== После создания сертификата ==="
-      Get-ChildItem -Recurse
-
-# --- Сборка проекта ---
-build_script:
-  - ps: |
-      Write-Host "=== Проверка папки RodnikiRadio перед сборкой ==="
-      Get-ChildItem RodnikiRadio -Recurse
-
-  - ps: |
-      Write-Host "=== Запуск MSBuild для сборки и создания AppX ==="
-      msbuild RodnikiRadio.sln /m `
-        /t:Restore,Build,CreateAppxPackage `
-        /p:Configuration=Release `
-        /p:Platform=ARM `
-        /p:UapAppxPackageBuildMode=SideloadOnly `
-        /p:AppxBundle=Never `
-        /p:AppxPackageDir="$env:APPVEYOR_BUILD_FOLDER\AppxPackages\\" `
-        /p:PackageCertificateKeyFile=RodnikiRadio.pfx `
-        /p:PackageCertificatePassword=$env:CERT_PASSWORD
-
-# --- Отладка после сборки ---
 after_build:
   - ps: |
-      Write-Host "=== Содержимое AppPackages после сборки ==="
-      Get-ChildItem AppPackages -Recurse
+      # Скрипт для поиска собранного пакета и публикации его в артефакты
+      Get-ChildItem -Recurse -Filter "*.appxbundle" | % { Push-AppveyorArtifact $_.FullName }
 
-      Write-Host "=== Содержимое корня репозитория ==="
-      Get-ChildItem -Recurse
-
-# --- Артефакты для скачивания ---
-artifacts:
-  - path: '**\*.appx'
-    name: RodnikiRadio_ARM
-  - path: RodnikiRadio.pfx
-    name: RodnikiRadio_PFX
+notifications:
+  - provider: Email
+    to:
+      - your-email@example.com
+    on_build_success: true
