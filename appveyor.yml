@@ -3,13 +3,33 @@ image: Visual Studio 2022
 configuration: Release
 platform: ARM
 
+environment:
+  CERT_PASSWORD: 1234
+
+install:
+  - ps: |
+      $cert = New-SelfSignedCertificate `
+        -Type CodeSigningCert `
+        -Subject "CN=RodnikiRadio" `
+        -CertStoreLocation "cert:\CurrentUser\My"
+
+      Export-PfxCertificate `
+        -cert $cert `
+        -FilePath RodnikiRadio.pfx `
+        -Password (ConvertTo-SecureString -String $env:CERT_PASSWORD -Force -AsPlainText)
+
 build_script:
   - msbuild RodnikiRadio.sln ^
       /p:Configuration=Release ^
       /p:Platform=ARM ^
       /p:GenerateAppxPackageOnBuild=true ^
       /p:AppxBundle=Never ^
-      /p:AppxPackageDir=AppPackages\
+      /p:AppxPackageDir=AppPackages\ ^
+      /p:PackageCertificateKeyFile=RodnikiRadio.pfx ^
+      /p:PackageCertificatePassword=%CERT_PASSWORD%
+
+after_build:
+  - signtool sign /fd SHA256 /f RodnikiRadio.pfx /p %CERT_PASSWORD% AppPackages\**\*.appx
 
 artifacts:
   - path: AppPackages\**\*.appx
