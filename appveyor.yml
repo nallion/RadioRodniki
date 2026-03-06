@@ -15,6 +15,10 @@ before_build:
       Export-Certificate -Cert $cert -FilePath "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.cer" -Type CERT
       Write-Host "Cert: $($cert.Thumbprint)"
 
+      # Показываем что есть в WindowsXaml targets
+      Write-Host "=== WindowsXaml targets ==="
+      Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\WindowsXaml\" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+
 build_script:
   - ps: |
       $sdk   = "C:\Program Files (x86)\Windows Kits\10"
@@ -24,7 +28,7 @@ build_script:
       $outDir = "BackgroundAudioTask\bin\ARM\Release"
       New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-      Write-Host "=== Step 1: Build BackgroundAudioTask via csc ==="
+      Write-Host "=== Step 1: Build BackgroundAudioTask ==="
       & $csc `
         /noconfig /nostdlib+ /platform:ARM /target:winmdobj `
         /langversion:7.3 /optimize+ /utf8output `
@@ -40,16 +44,17 @@ build_script:
       if ($LASTEXITCODE -ne 0) { throw "BackgroundAudioTask build failed" }
       Write-Host "BackgroundAudioTask OK"
 
-      # Копируем winmdobj в папку где main project ожидает зависимость
       $mainBin = "RadioRodniki\bin\ARM\Release"
       New-Item -ItemType Directory -Force -Path $mainBin | Out-Null
       Copy-Item "$outDir\BackgroundAudioTask.winmdobj" "$mainBin\BackgroundAudioTask.winmdobj"
-      Write-Host "Copied winmdobj to main bin"
 
       Write-Host "=== Step 2: Build main project ==="
-      msbuild RadioRodniki\RadioRodniki.csproj `
+      # Явно указываем путь к VS2019 MSBuild и VisualStudioVersion
+      $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe"
+      & $msbuild RadioRodniki\RadioRodniki.csproj `
         /p:Configuration=Release `
         /p:Platform=ARM `
+        /p:VisualStudioVersion=16.0 `
         /p:AppxBundle=Never `
         /p:AppxPackageSigningEnabled=true `
         /p:PackageCertificateThumbprint="$env:CERT_THUMBPRINT" `
@@ -64,9 +69,9 @@ after_build:
         Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
         Write-Host "appx ready: $($appx.FullName)"
       } else {
-        Write-Host "No appx found:"
-        Get-ChildItem "AppxPackages" -Recurse -ErrorAction SilentlyContinue
+        Write-Host "No appx, listing output:"
         Get-ChildItem "RadioRodniki\bin\ARM\Release" -ErrorAction SilentlyContinue
+        Get-ChildItem "AppxPackages" -Recurse -ErrorAction SilentlyContinue
       }
 
 artifacts:
