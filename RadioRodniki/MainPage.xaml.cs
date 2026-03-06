@@ -31,21 +31,28 @@ namespace RadioRodniki
 
         public MainPage()
         {
+            // Ничего не делаем в конструкторе — runtime ещё не готов
+        }
+
+        protected override void OnNavigatedTo(Windows.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+
             BuildUI();
 
             BackgroundMediaPlayer.MessageReceivedFromBackground += OnMessageFromBackground;
-            Player.MediaOpened   += OnMediaOpened;
-            Player.MediaFailed   += OnMediaFailed;
-            Player.MediaEnded    += OnMediaEnded;
+            Player.MediaOpened         += OnMediaOpened;
+            Player.MediaFailed         += OnMediaFailed;
+            Player.MediaEnded          += OnMediaEnded;
             Player.CurrentStateChanged += OnPlayerStateChanged;
 
             _reconnectTimer = new DispatcherTimer();
             _reconnectTimer.Interval = TimeSpan.FromSeconds(1);
-            _reconnectTimer.Tick += (s, e) => { _reconnectSecs++; _reconnectSecs_tb.Text = _reconnectSecs.ToString(); };
+            _reconnectTimer.Tick += (s, e2) => { _reconnectSecs++; _reconnectSecs_tb.Text = _reconnectSecs.ToString(); };
 
             _retryTimer = new DispatcherTimer();
             _retryTimer.Interval = TimeSpan.FromSeconds(3);
-            _retryTimer.Tick += (s, e) => { _retryTimer.Stop(); if (_isPlaying) LoadStream(); };
+            _retryTimer.Tick += (s, e2) => { _retryTimer.Stop(); if (_isPlaying) LoadStream(); };
         }
 
         private void BuildUI()
