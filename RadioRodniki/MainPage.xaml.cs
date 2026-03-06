@@ -37,8 +37,22 @@ namespace RadioRodniki
         protected override void OnNavigatedTo(Windows.UI.Xaml.Navigation.NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-
-            BuildUI();
+            try
+            {
+                BuildUI();
+            }
+            catch (Exception ex)
+            {
+                Content = new TextBlock
+                {
+                    Text = "BUILD ERROR:\n" + ex.GetType().Name + "\n" + ex.Message + "\n\n" + ex.StackTrace,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = new SolidColorBrush(Colors.Red),
+                    FontSize = 12,
+                    Margin = new Thickness(10)
+                };
+                return;
+            }
 
             BackgroundMediaPlayer.MessageReceivedFromBackground += OnMessageFromBackground;
             Player.MediaOpened         += OnMediaOpened;
