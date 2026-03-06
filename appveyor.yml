@@ -15,52 +15,103 @@ before_build:
       Export-Certificate -Cert $cert -FilePath "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.cer" -Type CERT
       Write-Host "Cert: $($cert.Thumbprint)"
 
-      # Показываем что есть в WindowsXaml targets
-      Write-Host "=== WindowsXaml targets ==="
-      Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\WindowsXaml\" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+      # Показываем что есть из инструментов
+      $sdkBin = "C:\Program Files (x86)\Windows Kits\10\bin"
+      Write-Host "=== SDK bin ==="
+      Get-ChildItem $sdkBin -ErrorAction SilentlyContinue | Select-Object Name
 
 build_script:
   - ps: |
-      $sdk   = "C:\Program Files (x86)\Windows Kits\10"
-      $winmd = "$sdk\UnionMetadata\10.0.19041.0\Windows.winmd"
-      $csc   = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe"
-      $refs  = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5"
-      $outDir = "BackgroundAudioTask\bin\ARM\Release"
-      New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+      $sdk    = "C:\Program Files (x86)\Windows Kits\10"
+      $winmd  = "$sdk\UnionMetadata\10.0.19041.0\Windows.winmd"
+      $csc    = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe"
+      $refs   = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5"
+      $xamlc  = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\WindowsXaml\v16.0"
 
-      Write-Host "=== Step 1: Build BackgroundAudioTask ==="
-      & $csc `
-        /noconfig /nostdlib+ /platform:ARM /target:winmdobj `
+      # Ищем makeappx и signtool
+      $makeappx = Get-ChildItem "$sdk\bin" -Recurse -Filter "makeappx.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+      $signtool = Get-ChildItem "$sdk\bin" -Recurse -Filter "signtool.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+      Write-Host "makeappx: $($makeappx.FullName)"
+      Write-Host "signtool:  $($signtool.FullName)"
+
+      # ── Шаг 1: BackgroundAudioTask ──
+      Write-Host "=== Step 1: BackgroundAudioTask ==="
+      $bgOut = "BackgroundAudioTask\bin\ARM\Release"
+      New-Item -ItemType Directory -Force -Path $bgOut | Out-Null
+      & $csc /noconfig /nostdlib+ /platform:ARM /target:winmdobj `
         /langversion:7.3 /optimize+ /utf8output `
         /reference:"$winmd" `
         /reference:"$refs\mscorlib.dll" `
         /reference:"$refs\System.Runtime.dll" `
         /reference:"$refs\System.Runtime.InteropServices.WindowsRuntime.dll" `
         /reference:"$refs\System.ObjectModel.dll" `
-        /out:"$outDir\BackgroundAudioTask.winmdobj" `
+        /out:"$bgOut\BackgroundAudioTask.winmdobj" `
         BackgroundAudioTask\MyBackgroundAudioTask.cs `
         BackgroundAudioTask\Properties\AssemblyInfo.cs
-
-      if ($LASTEXITCODE -ne 0) { throw "BackgroundAudioTask build failed" }
+      if ($LASTEXITCODE -ne 0) { throw "BackgroundAudioTask failed" }
       Write-Host "BackgroundAudioTask OK"
 
-      $mainBin = "RadioRodniki\bin\ARM\Release"
-      New-Item -ItemType Directory -Force -Path $mainBin | Out-Null
-      Copy-Item "$outDir\BackgroundAudioTask.winmdobj" "$mainBin\BackgroundAudioTask.winmdobj"
+      # ── Шаг 2: Компилируем XAML через XamlCompiler ──
+      Write-Host "=== Step 2: Compile XAML ==="
+      $xamlCompiler = "$xamlc\Microsoft.Windows.UI.Xaml.CSharp.targets"
+      Write-Host "XAML targets: $(Test-Path $xamlCompiler)"
 
-      Write-Host "=== Step 2: Build main project ==="
-      # Явно указываем путь к VS2019 MSBuild и VisualStudioVersion
+      # Используем msbuild из VS2019 явно
       $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe"
-      & $msbuild RadioRodniki\RadioRodniki.csproj `
-        /p:Configuration=Release `
-        /p:Platform=ARM `
-        /p:VisualStudioVersion=16.0 `
-        /p:AppxBundle=Never `
-        /p:AppxPackageSigningEnabled=true `
-        /p:PackageCertificateThumbprint="$env:CERT_THUMBPRINT" `
-        /p:UapAppxPackageBuildMode=SideloadOnly `
-        /p:AppxPackageDir="$env:APPVEYOR_BUILD_FOLDER\AppxPackages\\" `
-        /verbosity:normal
+
+      # Создаём временный минимальный project файл без WinFx
+      $tmpProj = "$env:APPVEYOR_BUILD_FOLDER\build_main.proj"
+      @"
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$xamlc\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <PropertyGroup>
+    <Configuration>Release</Configuration>
+    <Platform>ARM</Platform>
+    <OutputType>AppContainerExe</OutputType>
+    <RootNamespace>RadioRodniki</RootNamespace>
+    <AssemblyName>RadioRodniki</AssemblyName>
+    <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
+    <TargetPlatformMinVersion>10.0.10586.0</TargetPlatformMinVersion>
+    <OutputPath>$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\bin\ARM\Release\</OutputPath>
+    <AppxPackageDir>$env:APPVEYOR_BUILD_FOLDER\AppxPackages\</AppxPackageDir>
+    <AppxBundle>Never</AppxBundle>
+    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
+    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <PackageCertificateThumbprint>$env:CERT_THUMBPRINT</PackageCertificateThumbprint>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\App.xaml.cs">
+      <DependentUpon>App.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\MainPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\Assets\Logo.png" />
+    <Content Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\Assets\SmallLogo.png" />
+    <Content Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\Assets\SplashScreen.png" />
+    <Content Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\Assets\StoreLogo.png" />
+    <Content Include="$env:APPVEYOR_BUILD_FOLDER\RadioRodniki\Assets\WideLogo.png" />
+  </ItemGroup>
+</Project>
+"@ | Out-File -FilePath $tmpProj -Encoding utf8
+
+      & $msbuild $tmpProj /verbosity:normal
+      if ($LASTEXITCODE -ne 0) { throw "Main project build failed" }
 
 after_build:
   - ps: |
@@ -69,9 +120,9 @@ after_build:
         Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
         Write-Host "appx ready: $($appx.FullName)"
       } else {
-        Write-Host "No appx, listing output:"
-        Get-ChildItem "RadioRodniki\bin\ARM\Release" -ErrorAction SilentlyContinue
+        Write-Host "No appx, listing:"
         Get-ChildItem "AppxPackages" -Recurse -ErrorAction SilentlyContinue
+        Get-ChildItem "RadioRodniki\bin\ARM\Release" -ErrorAction SilentlyContinue
       }
 
 artifacts:
