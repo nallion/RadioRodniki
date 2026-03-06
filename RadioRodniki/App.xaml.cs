@@ -11,6 +11,7 @@ namespace RadioRodniki
     {
         public App()
         {
+            this.InitializeComponent();
             this.Suspending += OnSuspending;
         }
 
