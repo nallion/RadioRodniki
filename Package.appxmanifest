@@ -6,7 +6,7 @@
   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
   IgnorableNamespaces="uap mp uap3">
 
-  <Identity Name="RodnikiRadio.App" Publisher="CN=nallion" Version="1.0.0.0" />
+  <Identity Name="RodnikiRadio.App" Publisher="CN=AppVeyorSign" Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -39,7 +39,7 @@
       <Extensions>
         <uap:Extension Category="windows.mediaPlayback">
           <uap:MediaPlayback>
-            <uap:Codec Name="AAC" />
+            <uap:Codec Name="AAC Decoder" />
           </uap:MediaPlayback>
         </uap:Extension>
       </Extensions>
