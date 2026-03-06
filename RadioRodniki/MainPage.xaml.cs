@@ -10,7 +10,7 @@ using Windows.UI.Xaml.Shapes;
 
 namespace RadioRodniki
 {
-    public sealed class MainPage : Page
+    public sealed partial class MainPage : Page
     {
         private const string StreamUrl = "https://rodniki.hostingradio.ru/rodniki32.aacp";
 
