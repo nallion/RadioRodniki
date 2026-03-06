@@ -17,32 +17,27 @@ namespace RodnikiRadio
             
             _mediaPlayer = new MediaPlayer();
 
-            // 1. Указываем категорию аудио для работы в фоне
+            // 1. Категория Media дает иммунитет к заморозке процесса
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
 
-            // 2. Настраиваем системные элементы управления напрямую
+            // 2. Настройка системных кнопок (SMTC)
             var smtc = _mediaPlayer.SystemMediaTransportControls;
             smtc.IsEnabled = true;
             smtc.IsPlayEnabled = true;
             smtc.IsPauseEnabled = true;
             
-            // Явно отключаем кнопки перемотки, если они поддерживаются
+            // Прямой эфир — кнопки перемотки не нужны
             smtc.IsNextEnabled = false;
             smtc.IsPreviousEnabled = false;
 
-            // 3. Обновляем информацию на экране
-            UpdateDisplayInfo(smtc);
-
-            _mediaPlayer.Source = MediaSource.CreateFromUri(new Uri("https://rodniki.hostingradio.ru/rodniki32.aacp"));
-        }
-
-        private void UpdateDisplayInfo(SystemMediaTransportControls smtc)
-        {
+            // 3. Данные для экрана блокировки
             var updater = smtc.DisplayUpdater;
             updater.Type = MediaPlaybackType.Music;
             updater.MusicProperties.Title = "Радио Родники";
             updater.MusicProperties.Artist = "Прямой эфир";
             updater.Update();
+
+            _mediaPlayer.Source = MediaSource.CreateFromUri(new Uri("https://rodniki.hostingradio.ru/rodniki32.aacp"));
         }
 
         private void PlayButton_Click(object sender, RoutedEventArgs e)
