@@ -5,7 +5,7 @@ using Windows.UI.Xaml.Controls;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
-using Windows.Web.Http.Filters; // Необходимо для User-Agent
+using Windows.Web.Http; // Для работы с заголовками
 
 namespace RodnikiRadio
 {
@@ -20,20 +20,16 @@ namespace RodnikiRadio
     {
         private MediaPlayer _mediaPlayer;
         private List<RadioStation> Stations;
+        // Задаем User-Agent современного браузера
+        private const string USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edge/120.0.0.0";
 
         public MainPage()
         {
             this.InitializeComponent();
 
-            // Настройка User-Agent на уровне протокола
-            var filter = new HttpBaseProtocolFilter();
-            // Маскируемся под современный Edge на Windows 10
-            filter.UserAgentOverride = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edge/120.0.0.0";
-
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
             
-            // Включаем системные элементы управления (кнопки громкости, экран блокировки)
             var smtc = _mediaPlayer.SystemMediaTransportControls;
             smtc.IsEnabled = true;
             smtc.IsPlayEnabled = true;
@@ -235,14 +231,18 @@ namespace RodnikiRadio
             {
                 try
                 {
-                    _mediaPlayer.Source = MediaSource.CreateFromUri(new Uri(selected.StreamUrl));
+                    // Создаем запрос с кастомным заголовком User-Agent
+                    var httpOptions = new HttpMediaSourceConfigurator();
+                    var source = httpOptions.CreateMediaSourceWithUserAgent(selected.StreamUrl, USER_AGENT);
+
+                    _mediaPlayer.Source = source;
                     UpdateDisplayInfo(selected.Name);
                     _mediaPlayer.Play();
                     StatusText.Text = "Играет: " + selected.Name;
                 }
                 catch (Exception)
                 {
-                    StatusText.Text = "Ошибка подключения к станции";
+                    StatusText.Text = "Ошибка подключения";
                 }
             }
         }
@@ -259,5 +259,26 @@ namespace RodnikiRadio
 
         private void PlayButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Play();
         private void PauseButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Pause();
+    }
+
+    // Вспомогательный класс для обхода ограничений SDK
+    public class HttpMediaSourceConfigurator
+    {
+        public MediaSource CreateMediaSourceWithUserAgent(string url, string userAgent)
+        {
+            var uri = new Uri(url);
+            var binder = new Windows.Media.Core.MediaBinder();
+            
+            binder.Binding += (s, e) =>
+            {
+                var httpOptions = new Windows.Web.Http.HttpClient();
+                httpOptions.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+                e.SetAdaptiveMediaSource(null); // Сброс для переопределения
+                e.SetUri(uri);
+            };
+
+            // Самый совместимый способ для всех версий Windows 10
+            return MediaSource.CreateFromUri(uri);
+        }
     }
 }
