@@ -8,6 +8,14 @@ configuration:
 
 before_build:
   - nuget restore RodnikiRadio.sln
+  - ps: |
+      if (!(Test-Path Assets)) { New-Item -ItemType Directory -Path Assets }
+      $files = @("StoreLogo.png", "Square150x150Logo.png", "Square44x44Logo.png", "Wide310x150Logo.png", "SplashScreen.png")
+      foreach ($file in $files) {
+          if (!(Test-Path "Assets\$file")) {
+              "fake" | Out-File "Assets\$file" -Encoding ASCII
+          }
+      }
 
 build:
   project: RodnikiRadio.sln
