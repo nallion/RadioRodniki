@@ -6,6 +6,18 @@ configuration: Release
 
 before_build:
   - ps: |
+      # Показываем что есть в Windows Kits
+      Write-Host "=== Windows Kits UnionMetadata ==="
+      Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\" -ErrorAction SilentlyContinue
+
+      # Ищем Windows.winmd
+      $winmd = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\UnionMetadata\" -Recurse -Filter "Windows.winmd" -ErrorAction SilentlyContinue | Select-Object -First 1
+      if ($winmd) {
+        Write-Host "Found Windows.winmd: $($winmd.FullName)"
+      } else {
+        Write-Host "Windows.winmd not found"
+      }
+
       # Генерируем сертификат
       $cert = New-SelfSignedCertificate `
         -Type Custom `
@@ -16,8 +28,7 @@ before_build:
         -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
       $env:CERT_THUMBPRINT = $cert.Thumbprint
       Write-Host "Cert thumbprint: $($cert.Thumbprint)"
-      # Экспортируем .cer для телефона
-      Export-Certificate -Cert $cert -FilePath "RadioRodniki.cer" -Type CERT
+      Export-Certificate -Cert $cert -FilePath "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.cer" -Type CERT
       Write-Host "Certificate exported"
 
 build_script:
@@ -31,21 +42,22 @@ build_script:
         /p:UapAppxPackageBuildMode=SideloadOnly `
         /p:AppxPackageDir="$env:APPVEYOR_BUILD_FOLDER\AppxPackages\\" `
         /restore `
-        /verbosity:minimal
+        /verbosity:normal
 
 after_build:
   - ps: |
-      $appx = Get-ChildItem -Path "AppxPackages" -Recurse -Filter "*.appx" | Select-Object -First 1
+      Write-Host "=== AppxPackages ==="
+      Get-ChildItem -Path "AppxPackages" -Recurse -ErrorAction SilentlyContinue
+      $appx = Get-ChildItem -Path "AppxPackages" -Recurse -Filter "*.appx" -ErrorAction SilentlyContinue | Select-Object -First 1
       if ($appx) {
         Write-Host "Found: $($appx.FullName)"
-        Copy-Item $appx.FullName "RadioRodniki.appx"
+        Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
       } else {
-        Write-Host "appx not found, listing:"
-        Get-ChildItem -Path "AppxPackages" -Recurse
+        Write-Host "No appx found"
       }
 
 artifacts:
   - path: RadioRodniki.appx
-    name: RadioRodniki
+    name: RadioRodniki-appx
   - path: RadioRodniki.cer
-    name: Certificate
+    name: RadioRodniki-cer
