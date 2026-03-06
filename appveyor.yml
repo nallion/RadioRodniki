@@ -1,16 +1,16 @@
 image: Visual Studio 2022
 
 configuration: Release
-
 platform: ARM
 
 build_script:
   - msbuild RodnikiRadio.sln ^
       /p:Configuration=Release ^
       /p:Platform=ARM ^
+      /p:GenerateAppxPackageOnBuild=true ^
       /p:AppxBundle=Never ^
-      /p:UapAppxPackageBuildMode=StoreUpload
+      /p:AppxPackageDir=AppPackages\
 
 artifacts:
-  - path: '**\AppPackages\**\*.appx'
+  - path: AppPackages\**\*.appx
     name: RodnikiRadio_ARM
