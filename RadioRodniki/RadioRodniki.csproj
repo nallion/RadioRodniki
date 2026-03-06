@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
+          Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">ARM</Platform>
@@ -16,6 +18,7 @@
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
   </PropertyGroup>
+
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM'">
     <OutputPath>bin\ARM\Release\</OutputPath>
     <DefineConstants>TRACE;WINDOWS_UWP</DefineConstants>
@@ -25,6 +28,7 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
@@ -34,11 +38,13 @@
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
   </ItemGroup>
+
   <ItemGroup>
     <Page Include="App.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -49,6 +55,7 @@
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
+
   <ItemGroup>
     <Content Include="Assets\Logo.png" />
     <Content Include="Assets\SmallLogo.png" />
@@ -56,5 +63,18 @@
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\WideLogo.png" />
   </ItemGroup>
+
+  <!-- UWP XAML targets — содержат правильный MarkupCompilePass1/Pass2 -->
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+
+  <!--
+    WinFx.targets грузится ГЛОБАЛЬНО через CustomAfterMicrosoftCommonTargets ПОСЛЕ всех импортов.
+    Его MarkupCompilePass1 вызывает BG1004 для AppContainerExe.
+    Переопределяем его здесь — MSBuild использует ПОСЛЕДНЕЕ определение target,
+    поэтому это переопределение победит WinFx который загрузится ещё позже.
+    НО: нам нужно сохранить UWP реализацию. Поэтому делаем relay на UWP target.
+  -->
+  <Target Name="_WinFxMarkupCompilePass1_Disabled" />
+  <Target Name="_WinFxMarkupCompilePass2_Disabled" />
+
 </Project>
