@@ -1,4 +1,4 @@
-image: Visual Studio 2019
+image: Visual Studio 2022
 
 platform:
   - ARM
@@ -14,12 +14,4 @@ build:
   verbosity: minimal
 
 after_build:
-  - ps: |
-      # Скрипт для поиска собранного пакета и публикации его в артефакты
-      Get-ChildItem -Recurse -Filter "*.appxbundle" | % { Push-AppveyorArtifact $_.FullName }
-
-notifications:
-  - provider: Email
-    to:
-      - your-email@example.com
-    on_build_success: true
+  - ps: Get-ChildItem -Recurse -Filter "*.appxbundle" | % { Push-AppveyorArtifact $_.FullName }
