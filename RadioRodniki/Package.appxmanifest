@@ -3,12 +3,14 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  IgnorableNamespaces="uap mp">
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  IgnorableNamespaces="uap uap3 mp">
 
   <Identity
     Name="RadioRodniki.Player"
     Publisher="CN=RadioRodniki"
-    Version="1.0.0.0" />
+    Version="1.0.0.0"
+    ProcessorArchitecture="arm" />
 
   <mp:PhoneIdentity
     PhoneProductId="12345678-1234-1234-1234-123456789012"
@@ -21,7 +23,7 @@
   </Properties>
 
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Mobile" MinVersion="10.0.10586.0" MaxVersionTested="10.0.10586.0" />
+    <TargetDeviceFamily Name="Windows.Mobile" MinVersion="10.0.10586.0" MaxVersionTested="10.0.19041.0" />
   </Dependencies>
 
   <Resources>
@@ -29,7 +31,7 @@
   </Resources>
 
   <Applications>
-    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="RadioRodniki.App">
+    <Application Id="App" Executable="RadioRodniki.exe" EntryPoint="RadioRodniki.App">
 
       <uap:VisualElements
         DisplayName="Радио Родники"
@@ -50,12 +52,11 @@
       </uap:VisualElements>
 
       <Extensions>
-        <!-- Фоновая аудио-задача — ключевой элемент -->
-        <uap:Extension Category="windows.backgroundTasks" EntryPoint="BackgroundAudioTask.MyBackgroundAudioTask">
-          <uap:BackgroundTasks>
-            <uap:Task Type="audio"/>
-          </uap:BackgroundTasks>
-        </uap:Extension>
+        <Extension Category="windows.backgroundTasks" EntryPoint="BackgroundAudioTask.MyBackgroundAudioTask">
+          <BackgroundTasks xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">
+            <Task Type="audio"/>
+          </BackgroundTasks>
+        </Extension>
       </Extensions>
 
     </Application>
