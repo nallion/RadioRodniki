@@ -14,7 +14,7 @@ before_build:
       
       # 2. Генерация правильного самоподписанного сертификата для UWP
       Write-Host "Generating signing certificate..."
-      $certSubject = "CN=nallion"
+      $certSubject = "CN=AppVeyorSign"
       $certPassword = ConvertTo-SecureString "1234" -AsPlainText -Force
       
       $cert = New-SelfSignedCertificate -Type CodeSigningCert `
