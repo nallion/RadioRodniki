@@ -1,3 +1,4 @@
+using System;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.UI.Xaml;
@@ -10,7 +11,6 @@ namespace RadioRodniki
     {
         public App()
         {
-            this.InitializeComponent();
             this.Suspending += OnSuspending;
         }
 
@@ -23,7 +23,6 @@ namespace RadioRodniki
                 rootFrame.NavigationFailed += OnNavigationFailed;
                 Window.Current.Content = rootFrame;
             }
-
             if (e.PrelaunchActivated == false)
             {
                 if (rootFrame.Content == null)
@@ -37,9 +36,6 @@ namespace RadioRodniki
             throw new Exception("Failed to load Page " + e.SourcePageType.FullName);
         }
 
-        private void OnSuspending(object sender, SuspendingEventArgs e)
-        {
-            // Фоновая задача продолжает работать — ничего не делаем
-        }
+        private void OnSuspending(object sender, SuspendingEventArgs e) { }
     }
 }

@@ -50,7 +50,9 @@ build_script:
         /reference:"$refs\System.Runtime.WindowsRuntime.dll" `
         /out:"RadioRodniki\bin\ARM\Release\RadioRodniki.exe" `
         RadioRodniki\App.xaml.cs `
+        RadioRodniki\App.g.cs `
         RadioRodniki\MainPage.xaml.cs `
+        RadioRodniki\MainPage.g.cs `
         RadioRodniki\Properties\AssemblyInfo.cs
       if ($LASTEXITCODE -ne 0) { throw "RadioRodniki compile failed" }
       Write-Host "RadioRodniki compiled OK"
