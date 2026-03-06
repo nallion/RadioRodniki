@@ -5,7 +5,8 @@ using Windows.UI.Xaml.Controls;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
-using Windows.Web.Http; // Для работы с заголовками
+using Windows.Media.Streaming.Adaptive;
+using Windows.Web.Http;
 
 namespace RodnikiRadio
 {
@@ -20,7 +21,6 @@ namespace RodnikiRadio
     {
         private MediaPlayer _mediaPlayer;
         private List<RadioStation> Stations;
-        // Задаем User-Agent современного браузера
         private const string USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edge/120.0.0.0";
 
         public MainPage()
@@ -29,7 +29,7 @@ namespace RodnikiRadio
 
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
-            
+
             var smtc = _mediaPlayer.SystemMediaTransportControls;
             smtc.IsEnabled = true;
             smtc.IsPlayEnabled = true;
@@ -225,24 +225,42 @@ namespace RodnikiRadio
             };
         }
 
-        private void RadioList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void RadioList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (RadioList.SelectedItem is RadioStation selected)
             {
                 try
                 {
-                    // Создаем запрос с кастомным заголовком User-Agent
-                    var httpOptions = new HttpMediaSourceConfigurator();
-                    var source = httpOptions.CreateMediaSourceWithUserAgent(selected.StreamUrl, USER_AGENT);
+                    StatusText.Text = "Подключение...";
+
+                    var uri = new Uri(selected.StreamUrl);
+
+                    // HttpClient с User-Agent — обходит блокировку нестандартных портов
+                    var httpClient = new HttpClient();
+                    httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
+
+                    // AdaptiveMediaSource корректно работает с HTTPS на портах 8000, 8040 и т.д.
+                    var result = await AdaptiveMediaSource.CreateFromUriAsync(uri, httpClient);
+
+                    MediaSource source;
+                    if (result.Status == AdaptiveMediaSourceCreationStatus.Success)
+                    {
+                        source = MediaSource.CreateFromAdaptiveMediaSource(result.MediaSource);
+                    }
+                    else
+                    {
+                        // Fallback для прямых AAC/MP3 потоков без манифеста
+                        source = MediaSource.CreateFromUri(uri);
+                    }
 
                     _mediaPlayer.Source = source;
                     UpdateDisplayInfo(selected.Name);
                     _mediaPlayer.Play();
                     StatusText.Text = "Играет: " + selected.Name;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    StatusText.Text = "Ошибка подключения";
+                    StatusText.Text = "Ошибка подключения: " + ex.Message;
                 }
             }
         }
@@ -259,26 +277,5 @@ namespace RodnikiRadio
 
         private void PlayButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Play();
         private void PauseButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Pause();
-    }
-
-    // Вспомогательный класс для обхода ограничений SDK
-    public class HttpMediaSourceConfigurator
-    {
-        public MediaSource CreateMediaSourceWithUserAgent(string url, string userAgent)
-        {
-            var uri = new Uri(url);
-            var binder = new Windows.Media.Core.MediaBinder();
-            
-            binder.Binding += (s, e) =>
-            {
-                var httpOptions = new Windows.Web.Http.HttpClient();
-                httpOptions.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
-                e.SetAdaptiveMediaSource(null); // Сброс для переопределения
-                e.SetUri(uri);
-            };
-
-            // Самый совместимый способ для всех версий Windows 10
-            return MediaSource.CreateFromUri(uri);
-        }
     }
 }
