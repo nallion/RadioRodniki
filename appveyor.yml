@@ -17,14 +17,14 @@ before_build:
 
 build_script:
   - ps: |
-      $sdk    = "C:\Program Files (x86)\Windows Kits\10"
-      $winmd  = "$sdk\UnionMetadata\10.0.19041.0\Windows.winmd"
-      $csc    = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe"
-      $refs   = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5"
+      $sdk   = "C:\Program Files (x86)\Windows Kits\10"
+      $winmd = "$sdk\UnionMetadata\10.0.19041.0\Windows.winmd"
+      $csc   = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe"
+      $refs  = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5"
       $outDir = "BackgroundAudioTask\bin\ARM\Release"
       New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-      Write-Host "=== Building BackgroundAudioTask ==="
+      Write-Host "=== Step 1: Build BackgroundAudioTask via csc ==="
       & $csc `
         /noconfig /nostdlib+ /platform:ARM /target:winmdobj `
         /langversion:7.3 /optimize+ /utf8output `
@@ -33,15 +33,20 @@ build_script:
         /reference:"$refs\System.Runtime.dll" `
         /reference:"$refs\System.Runtime.InteropServices.WindowsRuntime.dll" `
         /reference:"$refs\System.ObjectModel.dll" `
-        /reference:"$refs\System.Threading.dll" `
         /out:"$outDir\BackgroundAudioTask.winmdobj" `
         BackgroundAudioTask\MyBackgroundAudioTask.cs `
         BackgroundAudioTask\Properties\AssemblyInfo.cs
 
-      if ($LASTEXITCODE -ne 0) { throw "csc failed" }
+      if ($LASTEXITCODE -ne 0) { throw "BackgroundAudioTask build failed" }
       Write-Host "BackgroundAudioTask OK"
 
-      Write-Host "=== Building main project ==="
+      # Копируем winmdobj в папку где main project ожидает зависимость
+      $mainBin = "RadioRodniki\bin\ARM\Release"
+      New-Item -ItemType Directory -Force -Path $mainBin | Out-Null
+      Copy-Item "$outDir\BackgroundAudioTask.winmdobj" "$mainBin\BackgroundAudioTask.winmdobj"
+      Write-Host "Copied winmdobj to main bin"
+
+      Write-Host "=== Step 2: Build main project ==="
       msbuild RadioRodniki\RadioRodniki.csproj `
         /p:Configuration=Release `
         /p:Platform=ARM `
@@ -57,10 +62,11 @@ after_build:
       $appx = Get-ChildItem "AppxPackages" -Recurse -Filter "*.appx" -ErrorAction SilentlyContinue | Select-Object -First 1
       if ($appx) {
         Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
-        Write-Host "appx: $($appx.FullName)"
+        Write-Host "appx ready: $($appx.FullName)"
       } else {
-        Write-Host "No appx"
+        Write-Host "No appx found:"
         Get-ChildItem "AppxPackages" -Recurse -ErrorAction SilentlyContinue
+        Get-ChildItem "RadioRodniki\bin\ARM\Release" -ErrorAction SilentlyContinue
       }
 
 artifacts:
