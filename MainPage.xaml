@@ -1,0 +1,26 @@
+<Page
+    x:Class="RodnikiRadio.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Background="Black">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock
+                Text="Rodniki Radio"
+                Foreground="White"
+                FontSize="28"
+                HorizontalAlignment="Center"
+                Margin="0,0,0,20"/>
+
+            <Button
+                x:Name="PlayButton"
+                Content="Play"
+                Width="200"
+                Height="60"
+                Click="PlayButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Page>
