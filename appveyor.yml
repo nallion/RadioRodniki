@@ -46,10 +46,8 @@ build_script:
         /reference:"$refs\mscorlib.dll" `
         /reference:"$refs\System.Runtime.dll" `
         /reference:"$refs\System.Runtime.InteropServices.WindowsRuntime.dll" `
-        /reference:"$refs\System.Runtime.InteropServices.WindowsRuntime.UI.Xaml.dll" `
         /reference:"$refs\System.ObjectModel.dll" `
         /reference:"$refs\System.Runtime.WindowsRuntime.dll" `
-        /reference:"$refs\System.Runtime.WindowsRuntime.UI.Xaml.dll" `
         /out:"RadioRodniki\bin\ARM\Release\RadioRodniki.exe" `
         RadioRodniki\App.xaml.cs `
         RadioRodniki\MainPage.xaml.cs `
