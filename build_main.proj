@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(VS2019)\MSBuild\Microsoft\WindowsXaml\v16.0\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+
   <PropertyGroup>
     <Configuration>Release</Configuration>
     <Platform>ARM</Platform>
@@ -12,12 +12,15 @@
     <AppxBundle>Never</AppxBundle>
     <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
-    <!-- Отключаем автопоиск reference assemblies — используем WinMD напрямую -->
-    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <!-- Отключаем GetReferenceAssemblyPaths полностью -->
     <TargetFrameworkIdentifier>.NETCore</TargetFrameworkIdentifier>
+    <TargetFrameworkVersion>v5.0</TargetFrameworkVersion>
     <TargetFrameworkProfile></TargetFrameworkProfile>
+    <NoStdLib>true</NoStdLib>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="RadioRodniki\App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
@@ -27,9 +30,11 @@
     </Compile>
     <Compile Include="RadioRodniki\Properties\AssemblyInfo.cs" />
   </ItemGroup>
+
   <ItemGroup>
     <AppxManifest Include="RadioRodniki\Package.appxmanifest" />
   </ItemGroup>
+
   <ItemGroup>
     <Page Include="RadioRodniki\App.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -38,6 +43,7 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
+
   <ItemGroup>
     <Content Include="RadioRodniki\Assets\Logo.png" />
     <Content Include="RadioRodniki\Assets\SmallLogo.png" />
@@ -45,4 +51,11 @@
     <Content Include="RadioRodniki\Assets\StoreLogo.png" />
     <Content Include="RadioRodniki\Assets\WideLogo.png" />
   </ItemGroup>
+
+  <!-- Подключаем UWP targets ПОСЛЕ всех PropertyGroup -->
+  <Import Project="$(VS2019)\MSBuild\Microsoft\WindowsXaml\v16.0\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+
+  <!-- Переопределяем GetReferenceAssemblyPaths чтобы не падал -->
+  <Target Name="GetReferenceAssemblyPaths" />
+
 </Project>
