@@ -12,6 +12,11 @@
     <AppxBundle>Never</AppxBundle>
     <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <!-- Отключаем автопоиск reference assemblies — используем WinMD напрямую -->
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkIdentifier>.NETCore</TargetFrameworkIdentifier>
+    <TargetFrameworkProfile></TargetFrameworkProfile>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="RadioRodniki\App.xaml.cs">
