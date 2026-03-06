@@ -1,30 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Package
-  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
-  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/variant"
-  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
-  IgnorableNamespaces="uap mp uap3">
-
-  <Identity Name="RodnikiRadio.App" Publisher="CN=nallion" Version="1.0.0.0" />
-
-  <mp:PhoneIdentity PhoneProductId="a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
-
-  <Properties>
-    <DisplayName>Радио Родники</DisplayName>
-    <PublisherDisplayName>AppVeyorSign</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
-  </Properties>
-
-  <Dependencies>
-    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.10240.0" MaxVersionTested="10.0.19041.0" />
-  </Dependencies>
-
-  <Resources>
-    <Resource Language="x-generate"/>
-  </Resources>
-
-  <Applications>
+<Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="RodnikiRadio.App">
       <uap:VisualElements
         DisplayName="Радио Родники"
@@ -37,11 +11,7 @@
       </uap:VisualElements>
 
       <Extensions>
-        <uap:Extension Category="windows.mediaPlayback">
-          <uap:MediaPlayback>
-            <uap:InProcessRenderer />
-          </uap:MediaPlayback>
-        </uap:Extension>
+        <uap:Extension Category="windows.mediaPlayback" />
       </Extensions>
     </Application>
   </Applications>
@@ -50,4 +20,3 @@
     <Capability Name="internetClient" />
     <uap3:Capability Name="backgroundMediaPlayback"/>
   </Capabilities>
-</Package>
