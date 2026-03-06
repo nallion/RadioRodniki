@@ -1,6 +1,6 @@
 using System;
-using System.Threading;
 using Windows.ApplicationModel.Background;
+using Windows.System.Threading;
 using Windows.Foundation.Collections;
 using Windows.Media;
 using Windows.Media.Playback;
@@ -62,9 +62,10 @@ namespace BackgroundAudioTask
 
         private void Retry()
         {
-            // Task.Delay недоступен — используем Timer
-            var timer = new Timer(_ => { if (_isRunning) StartStream(); },
-                null, RetryDelayMs, Timeout.Infinite);
+            // ThreadPoolTimer из WinRT — не требует System.Threading
+            ThreadPoolTimer.CreateTimer(
+                _ => { if (_isRunning) StartStream(); },
+                TimeSpan.FromMilliseconds(RetryDelayMs));
         }
 
         private void UpdateSmtcDisplay()
