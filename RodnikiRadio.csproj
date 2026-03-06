@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>uap10.0.14393</TargetFramework>
-    <OutputType>AppContainerExe</OutputType>
-    <RootNamespace>RodnikiRadio</RootNamespace>
-    <Platforms>x86|ARM</Platforms>
-  </PropertyGroup>
+<PropertyGroup>
+  <TargetFramework>uap10.0.14393</TargetFramework>
+  <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
+  <TargetPlatformMinVersion>10.0.14393.0</TargetPlatformMinVersion>
+  <OutputType>AppContainerExe</OutputType>
+  <RootNamespace>RodnikiRadio</RootNamespace>
+</PropertyGroup>
 
 </Project>

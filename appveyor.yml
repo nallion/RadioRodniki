@@ -2,18 +2,15 @@ image: Visual Studio 2022
 
 configuration: Release
 
-install:
-  - git submodule update --init --recursive
+platform: ARM
 
-before_build:
-  - nuget restore
-
-build:
-  project: RodnikiRadio.sln
-  verbosity: minimal
+build_script:
+  - msbuild RodnikiRadio.sln ^
+      /p:Configuration=Release ^
+      /p:Platform=ARM ^
+      /p:AppxBundle=Never ^
+      /p:UapAppxPackageBuildMode=StoreUpload
 
 artifacts:
   - path: '**\AppPackages\**\*.appx'
-    name: appx
-
-deploy: off
+    name: RodnikiRadio_ARM
