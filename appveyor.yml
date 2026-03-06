@@ -20,7 +20,7 @@ install:
 
 build_script:
   - msbuild RodnikiRadio.sln /m ^
-      /t:Restore,Build,Publish ^
+      /t:Restore,Build,CreateAppxPackage ^
       /p:Configuration=Release ^
       /p:Platform=ARM ^
       /p:UapAppxPackageBuildMode=SideloadOnly ^
