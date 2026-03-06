@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Windows.ApplicationModel.Background;
 using Windows.Foundation.Collections;
 using Windows.Media;
@@ -23,7 +24,7 @@ namespace BackgroundAudioTask
             var player = BackgroundMediaPlayer.Current;
 
             _smtc = SystemMediaTransportControls.GetForCurrentView();
-            _smtc.IsEnabled    = true;
+            _smtc.IsEnabled      = true;
             _smtc.IsPlayEnabled  = true;
             _smtc.IsPauseEnabled = true;
             _smtc.IsStopEnabled  = true;
@@ -45,19 +46,25 @@ namespace BackgroundAudioTask
         {
             try
             {
+                // ToUnixTimeMilliseconds недоступен в .NETCore 4.5 — используем Ticks
+                var cacheBust = (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond).ToString();
+                var url = StreamUrl + "?_=" + cacheBust;
                 var player = BackgroundMediaPlayer.Current;
-                var url = StreamUrl + "?_=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 player.AutoPlay = true;
                 player.SetUriSource(new Uri(url));
                 _smtc.PlaybackStatus = MediaPlaybackStatus.Playing;
             }
             catch
             {
-                System.Threading.Tasks.Task.Delay(RetryDelayMs).ContinueWith(_ =>
-                {
-                    if (_isRunning) StartStream();
-                });
+                Retry();
             }
+        }
+
+        private void Retry()
+        {
+            // Task.Delay недоступен — используем Timer
+            var timer = new Timer(_ => { if (_isRunning) StartStream(); },
+                null, RetryDelayMs, Timeout.Infinite);
         }
 
         private void UpdateSmtcDisplay()
@@ -83,10 +90,7 @@ namespace BackgroundAudioTask
             var msg = new ValueSet();
             msg.Add("State", "Error");
             BackgroundMediaPlayer.SendMessageToForeground(msg);
-            System.Threading.Tasks.Task.Delay(RetryDelayMs).ContinueWith(_ =>
-            {
-                if (_isRunning) StartStream();
-            });
+            Retry();
         }
 
         private void OnMediaEnded(MediaPlayer sender, object args)

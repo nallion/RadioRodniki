@@ -6,7 +6,6 @@ configuration: Release
 
 before_build:
   - ps: |
-      # Сертификат
       $cert = New-SelfSignedCertificate `
         -Type Custom -Subject "CN=RadioRodniki" `
         -KeyUsage DigitalSignature -FriendlyName "RadioRodniki" `
@@ -25,7 +24,7 @@ build_script:
       $outDir = "BackgroundAudioTask\bin\ARM\Release"
       New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-      Write-Host "=== Building BackgroundAudioTask directly with csc ==="
+      Write-Host "=== Building BackgroundAudioTask ==="
       & $csc `
         /noconfig /nostdlib+ /platform:ARM /target:winmdobj `
         /langversion:7.3 /optimize+ /utf8output `
@@ -34,12 +33,13 @@ build_script:
         /reference:"$refs\System.Runtime.dll" `
         /reference:"$refs\System.Runtime.InteropServices.WindowsRuntime.dll" `
         /reference:"$refs\System.ObjectModel.dll" `
+        /reference:"$refs\System.Threading.dll" `
         /out:"$outDir\BackgroundAudioTask.winmdobj" `
         BackgroundAudioTask\MyBackgroundAudioTask.cs `
         BackgroundAudioTask\Properties\AssemblyInfo.cs
 
       if ($LASTEXITCODE -ne 0) { throw "csc failed" }
-      Write-Host "BackgroundAudioTask compiled OK"
+      Write-Host "BackgroundAudioTask OK"
 
       Write-Host "=== Building main project ==="
       msbuild RadioRodniki\RadioRodniki.csproj `
@@ -59,7 +59,7 @@ after_build:
         Copy-Item $appx.FullName "$env:APPVEYOR_BUILD_FOLDER\RadioRodniki.appx"
         Write-Host "appx: $($appx.FullName)"
       } else {
-        Write-Host "No appx, listing:"
+        Write-Host "No appx"
         Get-ChildItem "AppxPackages" -Recurse -ErrorAction SilentlyContinue
       }
 
