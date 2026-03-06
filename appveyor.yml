@@ -1,3 +1,4 @@
+# appveyor.yml для RadioRodniki (Lumia ARM)
 image: Visual Studio 2019
 
 configuration: Release
@@ -6,11 +7,13 @@ platform: ARM
 environment:
   CERT_PASSWORD: 1234
 
+# --- Установка сертификата и проверка репозитория ---
 install:
   - ps: |
       Write-Host "=== Проверка содержимого репозитория после клона ==="
       Get-ChildItem -Recurse
 
+      # Генерация self-signed сертификата для подписи AppX
       $cert = New-SelfSignedCertificate `
         -Type CodeSigningCert `
         -Subject "CN=RodnikiRadio" `
@@ -24,27 +27,34 @@ install:
       Write-Host "=== После создания сертификата ==="
       Get-ChildItem -Recurse
 
+# --- Сборка проекта ---
 build_script:
   - ps: |
       Write-Host "=== Проверка папки RodnikiRadio перед сборкой ==="
       Get-ChildItem RodnikiRadio -Recurse
 
-  - msbuild RodnikiRadio.sln /m ^
-      /t:Restore,Build,CreateAppxPackage ^
-      /p:Configuration=Release ^
-      /p:Platform=ARM ^
-      /p:UapAppxPackageBuildMode=SideloadOnly ^
-      /p:AppxBundle=Never ^
-      /p:AppxPackageDir=AppPackages\ ^
-      /p:PackageCertificateKeyFile=RodnikiRadio.pfx ^
-      /p:PackageCertificatePassword=%CERT_PASSWORD%
+  - ps: |
+      Write-Host "=== Запуск MSBuild для сборки и создания AppX ==="
+      msbuild RodnikiRadio.sln /m `
+        /t:Restore,Build,CreateAppxPackage `
+        /p:Configuration=Release `
+        /p:Platform=ARM `
+        /p:UapAppxPackageBuildMode=SideloadOnly `
+        /p:AppxBundle=Never `
+        /p:AppxPackageDir=AppPackages\ `
+        /p:PackageCertificateKeyFile=RodnikiRadio.pfx `
+        /p:PackageCertificatePassword=$env:CERT_PASSWORD
 
+# --- Отладка после сборки ---
 after_build:
-  - Write-Host "=== Содержимое AppPackages ==="
-  - Get-ChildItem AppPackages -Recurse
-  - Write-Host "=== Содержимое корня репозитория ==="
-  - Get-ChildItem -Recurse
+  - ps: |
+      Write-Host "=== Содержимое AppPackages после сборки ==="
+      Get-ChildItem AppPackages -Recurse
 
+      Write-Host "=== Содержимое корня репозитория ==="
+      Get-ChildItem -Recurse
+
+# --- Артефакты для скачивания ---
 artifacts:
   - path: '**\*.appx'
     name: RodnikiRadio_ARM
