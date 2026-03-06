@@ -28,9 +28,6 @@ build_script:
       /p:PackageCertificateKeyFile=RodnikiRadio.pfx ^
       /p:PackageCertificatePassword=%CERT_PASSWORD%
 
-after_build:
-  - signtool sign /fd SHA256 /f RodnikiRadio.pfx /p %CERT_PASSWORD% AppPackages\**\*.appx
-
 artifacts:
   - path: AppPackages\**\*.appx
     name: RodnikiRadio_ARM
