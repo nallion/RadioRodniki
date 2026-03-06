@@ -6,8 +6,12 @@ platform: ARM
 environment:
   CERT_PASSWORD: 1234
 
+# --- Установка сертификата ---
 install:
   - ps: |
+      Write-Host "=== Проверка содержимого репозитория после клона ==="
+      dir /s
+
       $cert = New-SelfSignedCertificate `
         -Type CodeSigningCert `
         -Subject "CN=RodnikiRadio" `
@@ -18,7 +22,15 @@ install:
         -FilePath RodnikiRadio.pfx `
         -Password (ConvertTo-SecureString -String $env:CERT_PASSWORD -Force -AsPlainText)
 
+      Write-Host "=== После создания сертификата ==="
+      dir /s
+
+# --- Сборка проекта ---
 build_script:
+  - ps: |
+      Write-Host "=== Проверка папки RodnikiRadio перед сборкой ==="
+      dir RodnikiRadio /s
+
   - msbuild RodnikiRadio.sln /m ^
       /t:Restore,Build,CreateAppxPackage ^
       /p:Configuration=Release ^
@@ -29,9 +41,14 @@ build_script:
       /p:PackageCertificateKeyFile=RodnikiRadio.pfx ^
       /p:PackageCertificatePassword=%CERT_PASSWORD%
 
+# --- После сборки проверяем папку AppPackages ---
 after_build:
+  - Write-Host "=== Содержимое AppPackages ==="
   - dir /s AppPackages
+  - Write-Host "=== Содержимое корня репозитория ==="
+  - dir /s
 
+# --- Артефакты ---
 artifacts:
   - path: '**\*.appx'
     name: RodnikiRadio_ARM
