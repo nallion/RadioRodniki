@@ -41,7 +41,7 @@ build_script:
         /p:Platform=ARM `
         /p:UapAppxPackageBuildMode=SideloadOnly `
         /p:AppxBundle=Never `
-        /p:AppxPackageDir=AppPackages\ `
+        /p:AppxPackageDir="$env:APPVEYOR_BUILD_FOLDER\AppxPackages\\" `
         /p:PackageCertificateKeyFile=RodnikiRadio.pfx `
         /p:PackageCertificatePassword=$env:CERT_PASSWORD
 
