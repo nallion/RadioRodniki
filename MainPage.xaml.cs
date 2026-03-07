@@ -163,11 +163,12 @@ namespace RodnikiRadio
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
 
-            // GetForCurrentView() — единственный способ получить SMTC
-            // который реально работает с экраном блокировки в UWP.
-            // _mediaPlayer.SystemMediaTransportControls не перехватывает
-            // нажатия кнопок на экране блокировки без BackgroundTask.
-            var smtc = SystemMediaTransportControls.GetForCurrentView();
+            // Используем SMTC самого MediaPlayer — он регистрирует сессию
+            // воспроизведения в системе и показывает плеер на экране блокировки.
+            // CommandManager.IsEnabled = true (по умолчанию) оставляем — он нужен
+            // для отображения. Но его встроенные обработчики Next/Prev перехватываем
+            // через ButtonPressed на smtc напрямую.
+            var smtc = _mediaPlayer.SystemMediaTransportControls;
             smtc.IsEnabled = true;
             smtc.IsPlayEnabled = true;
             smtc.IsPauseEnabled = true;
@@ -175,8 +176,10 @@ namespace RodnikiRadio
             smtc.IsNextEnabled = true;
             smtc.ButtonPressed += Smtc_ButtonPressed;
 
-            // Отвязываем встроенный SMTC медиаплеера чтобы не было конфликта
-            _mediaPlayer.CommandManager.IsEnabled = false;
+            // Отключаем автоматическую обработку Next/Prev в CommandManager —
+            // он их всё равно не умеет (нет плейлиста), но перехватывает события.
+            _mediaPlayer.CommandManager.NextReceived += (cm, e) => { };
+            _mediaPlayer.CommandManager.PreviousReceived += (cm, e) => { };
 
             // Таймер — тикает каждую секунду, обновляет TimerText
             _playTimer = new DispatcherTimer();
@@ -425,7 +428,7 @@ namespace RodnikiRadio
 
         private void UpdateDisplayInfo(string title)
         {
-            var smtc = SystemMediaTransportControls.GetForCurrentView();
+            var smtc = _mediaPlayer.SystemMediaTransportControls;
             var updater = smtc.DisplayUpdater;
             updater.Type = MediaPlaybackType.Music;
             updater.MusicProperties.Title = title;
