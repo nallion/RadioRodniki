@@ -1,12 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading;
+using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
-using Windows.Media.Streaming.Adaptive;
 using Windows.Web.Http;
+using Windows.Web.Http.Filters;
+using Windows.Storage.Streams;
 
 namespace RodnikiRadio
 {
@@ -21,11 +26,30 @@ namespace RodnikiRadio
     {
         private MediaPlayer _mediaPlayer;
         private List<RadioStation> Stations;
-        private const string USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edge/120.0.0.0";
+        private HttpClient _httpClient;
+        private CancellationTokenSource _cts;
+
+        private const string USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/120.0.0.0 Safari/537.36";
 
         public MainPage()
         {
             this.InitializeComponent();
+
+            // HttpBaseProtocolFilter — единственный способ в UWP обойти
+            // блокировку нестандартных портов (8000, 8007, 8040, 10010...)
+            var filter = new HttpBaseProtocolFilter();
+            filter.AllowAutoRedirect = true;
+            filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
+            filter.CacheControl.WriteBehavior = HttpCacheWriteBehavior.NoCache;
+
+            _httpClient = new HttpClient(filter);
+            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
+            // Явно указываем Accept для Icecast/Shoutcast потоков
+            _httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Accept", "*/*");
+            _httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Icy-MetaData", "1");
 
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
@@ -61,21 +85,21 @@ namespace RodnikiRadio
                 new RadioStation { Name = "Детское радио - Россия", StreamUrl = "https://gpm.hostingradio.ru/detifm32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/detskoe.jpg" },
                 new RadioStation { Name = "Дорожное радио - Россия", StreamUrl = "https://fed.fmplay.ru:8000/dorozhnoe-32.aac", LogoUrl = "https://fmplay.ru/img/dorozhnoe.jpg" },
                 new RadioStation { Name = "Европа Плюс - Россия", StreamUrl = "https://fed.fmplay.ru:8000/europaplus-32.aac", LogoUrl = "https://fmplay.ru/img/europaplus.jpg" },
-                new RadioStation { Name = "Радио Комсомольская правда - Россия", StreamUrl = "https://kpradio.hostingradio.ru:8000/radiokp32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/kpravda.jpg" },
+                new RadioStation { Name = "Радио Комсомольская правда", StreamUrl = "https://kpradio.hostingradio.ru:8000/radiokp32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/kpravda.jpg" },
                 new RadioStation { Name = "Новое Радио - Россия", StreamUrl = "https://stream.newradio.ru/novoe32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/novoe.jpg" },
                 new RadioStation { Name = "Радио Орфей - Россия", StreamUrl = "https://fed.fmplay.ru:8000/orfey-32.aac", LogoUrl = "https://fmplay.ru/img/orfey.jpg" },
                 new RadioStation { Name = "Радио 7 - Россия", StreamUrl = "https://radio7.hostingradio.ru:8040/radio732.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/radio7.jpg" },
                 new RadioStation { Name = "Радио Record - Россия", StreamUrl = "https://fed.fmplay.ru:8000/record-32.aac", LogoUrl = "https://fmplay.ru/img/record.jpg" },
                 new RadioStation { Name = "Радио ВЕРА - Москва", StreamUrl = "https://radiovera.hostingradio.ru:8007/radiovera32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/veramsk.jpg" },
                 new RadioStation { Name = "Радио Дача - Россия", StreamUrl = "https://fed.fmplay.ru:8000/dacha-32.aac", LogoUrl = "https://fmplay.ru/img/dacha.jpg" },
-                new RadioStation { Name = "Радио ЗВЕЗДА - Центральная Россия", StreamUrl = "https://fed.fmplay.ru:8000/zvezda-32.aac", LogoUrl = "https://fmplay.ru/img/zvezda.jpg" },
+                new RadioStation { Name = "Радио ЗВЕЗДА", StreamUrl = "https://fed.fmplay.ru:8000/zvezda-32.aac", LogoUrl = "https://fmplay.ru/img/zvezda.jpg" },
                 new RadioStation { Name = "Радио Искатель", StreamUrl = "https://fed.fmplay.ru:8000/iskatel-32.aac", LogoUrl = "https://fmplay.ru/img/iskatel.jpg" },
                 new RadioStation { Name = "Радио Культура - Москва", StreamUrl = "https://fed.fmplay.ru:8000/kultura-32.aac", LogoUrl = "https://fmplay.ru/img/kultura.jpg" },
                 new RadioStation { Name = "Радио МИР - Россия", StreamUrl = "https://fed.fmplay.ru:8000/mir-32.aac", LogoUrl = "https://fmplay.ru/img/mir.jpg" },
                 new RadioStation { Name = "Маяк - Россия", StreamUrl = "https://fed.fmplay.ru:8000/mayak-32.aac", LogoUrl = "https://fmplay.ru/img/mayak.jpg" },
                 new RadioStation { Name = "Радио Monte Carlo - Россия", StreamUrl = "https://montecarlo.hostingradio.ru/montecarlo32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/mcarlo.jpg" },
-                new RadioStation { Name = "Радио России - Россия", StreamUrl = "https://fed.fmplay.ru:8000/rrossii-32.aac", LogoUrl = "https://fmplay.ru/img/rrossii.jpg" },
-                new RadioStation { Name = "Радио Шансон - Россия", StreamUrl = "https://fed.fmplay.ru:8000/shanson-32.aac", LogoUrl = "https://fmplay.ru/img/shanson.jpg" },
+                new RadioStation { Name = "Радио России", StreamUrl = "https://fed.fmplay.ru:8000/rrossii-32.aac", LogoUrl = "https://fmplay.ru/img/rrossii.jpg" },
+                new RadioStation { Name = "Радио Шансон", StreamUrl = "https://fed.fmplay.ru:8000/shanson-32.aac", LogoUrl = "https://fmplay.ru/img/shanson.jpg" },
                 new RadioStation { Name = "Радио Шоколад - Москва", StreamUrl = "https://choco.hostingradio.ru:10010/choco32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/chocolate.jpg" },
                 new RadioStation { Name = "Ретро FM - Россия", StreamUrl = "https://retro.hostingradio.ru:8043/retro32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/retro.jpg" },
                 new RadioStation { Name = "Радио Романтика - Москва", StreamUrl = "https://gpm.hostingradio.ru/romantika32.aacp?radiostatistica=IRP_FMPlay", LogoUrl = "https://fmplay.ru/img/romantika.jpg" },
@@ -117,17 +141,17 @@ namespace RodnikiRadio
                 new RadioStation { Name = "Ямал 1", StreamUrl = "https://reg.fmplay.ru:8000/yamalone-32.aac", LogoUrl = "https://fmplay.ru/img/yamalone.jpg" },
                 new RadioStation { Name = "Радио-Ноябрьск", StreamUrl = "https://reg.fmplay.ru:8000/radionoyabrsk-32.aac", LogoUrl = "https://fmplay.ru/img/radionoyabrsk.jpg" },
                 new RadioStation { Name = "Радио Прибой", StreamUrl = "https://reg.fmplay.ru:8000/radiopriboy-32.aac", LogoUrl = "https://fmplay.ru/img/radiopriboy.jpg" },
-                new RadioStation { Name = "Тэтим - Саха араадьыйата", StreamUrl = "https://reg.fmplay.ru:8000/tetimsaha-32.aac", LogoUrl = "https://fmplay.ru/img/tetimsaha.jpg" },
+                new RadioStation { Name = "Тэтим - Саха", StreamUrl = "https://reg.fmplay.ru:8000/tetimsaha-32.aac", LogoUrl = "https://fmplay.ru/img/tetimsaha.jpg" },
                 new RadioStation { Name = "Lo-Fi Radio", StreamUrl = "https://reg.fmplay.ru:8000/lofiradio-32.aac", LogoUrl = "https://fmplay.ru/img/lofiradio.jpg" },
                 new RadioStation { Name = "Радио АФРОДИТА", StreamUrl = "https://reg.fmplay.ru:8000/afrodita_radio-32.aac", LogoUrl = "https://fmplay.ru/img/afrodita_radio.jpg" },
                 new RadioStation { Name = "HIP HOP RADIO", StreamUrl = "https://reg.fmplay.ru:8000/hiphopradio-32.aac", LogoUrl = "https://fmplay.ru/img/hiphopradio.jpg" },
                 new RadioStation { Name = "Capital FM", StreamUrl = "https://fed.fmplay.ru:8000/capital-32.aac", LogoUrl = "https://fmplay.ru/img/capital.jpg" },
                 new RadioStation { Name = "Best FM", StreamUrl = "https://fed.fmplay.ru:8000/best-32.aac", LogoUrl = "https://fmplay.ru/img/best.jpg" },
-                new RadioStation { Name = "Радио Monte Carlo (Санкт-Петербург)", StreamUrl = "https://fed.fmplay.ru:8000/mcarlospb-32.aac", LogoUrl = "https://fmplay.ru/img/mcarlospb.jpg" },
+                new RadioStation { Name = "Радио Monte Carlo (СПб)", StreamUrl = "https://fed.fmplay.ru:8000/mcarlospb-32.aac", LogoUrl = "https://fmplay.ru/img/mcarlospb.jpg" },
                 new RadioStation { Name = "Радио ENERGY - Россия", StreamUrl = "https://fed.fmplay.ru:8000/nrj-32.aac", LogoUrl = "https://fmplay.ru/img/nrj.jpg" },
                 new RadioStation { Name = "Говорит Москва", StreamUrl = "https://fed.fmplay.ru:8000/gmoskva-32.aac", LogoUrl = "https://fmplay.ru/img/gmoskva.jpg" },
                 new RadioStation { Name = "Кекс FM", StreamUrl = "https://fed.fmplay.ru:8000/keks-32.aac", LogoUrl = "https://fmplay.ru/img/keks.jpg" },
-                new RadioStation { Name = "Радио «Ъ FM - Коммерсант»", StreamUrl = "https://fed.fmplay.ru:8000/kommersant-32.aac", LogoUrl = "https://fmplay.ru/img/kommersant.jpg" },
+                new RadioStation { Name = "Ъ FM - Коммерсант", StreamUrl = "https://fed.fmplay.ru:8000/kommersant-32.aac", LogoUrl = "https://fmplay.ru/img/kommersant.jpg" },
                 new RadioStation { Name = "RADIO METRO", StreamUrl = "https://reg.fmplay.ru:8000/radiometro-32.aac", LogoUrl = "https://fmplay.ru/img/radiometro.jpg" },
                 new RadioStation { Name = "Милицейская Волна", StreamUrl = "https://fed.fmplay.ru:8000/mvolna-32.aac", LogoUrl = "https://fmplay.ru/img/mvolna.jpg" },
                 new RadioStation { Name = "Москва FM", StreamUrl = "https://fed.fmplay.ru:8000/moscow-32.aac", LogoUrl = "https://fmplay.ru/img/moscow.jpg" },
@@ -142,7 +166,7 @@ namespace RodnikiRadio
                 new RadioStation { Name = "Страна FM", StreamUrl = "https://fed.fmplay.ru:8000/strana-32.aac", LogoUrl = "https://fmplay.ru/img/strana.jpg" },
                 new RadioStation { Name = "Радио 1", StreamUrl = "https://fed.fmplay.ru:8000/rtvp-32.aac", LogoUrl = "https://fmplay.ru/img/rtvp.jpg" },
                 new RadioStation { Name = "Радио Эрмитаж", StreamUrl = "https://fed.fmplay.ru:8000/hermitage-32.aac", LogoUrl = "https://fmplay.ru/img/hermitage.jpg" },
-                new RadioStation { Name = "Радио ТВ «ТВОЯ ВОЛНА»", StreamUrl = "https://fed.fmplay.ru:8000/tvoyavolna-32.aac", LogoUrl = "https://fmplay.ru/img/tvoyavolna.jpg" },
+                new RadioStation { Name = "Радио ТВОЯ ВОЛНА", StreamUrl = "https://fed.fmplay.ru:8000/tvoyavolna-32.aac", LogoUrl = "https://fmplay.ru/img/tvoyavolna.jpg" },
                 new RadioStation { Name = "Радио Зенит", StreamUrl = "https://fed.fmplay.ru:8000/zenit-32.aac", LogoUrl = "https://fmplay.ru/img/zenit.jpg" },
                 new RadioStation { Name = "Радио Нестандарт", StreamUrl = "https://fed.fmplay.ru:8000/nestandart-32.aac", LogoUrl = "https://fmplay.ru/img/nestandart.jpg" },
                 new RadioStation { Name = "Закрытый космос", StreamUrl = "https://fed.fmplay.ru:8000/closedospace-32.aac", LogoUrl = "https://fmplay.ru/img/closedospace.jpg" },
@@ -170,9 +194,9 @@ namespace RodnikiRadio
                 new RadioStation { Name = "BigTunesRadio - Oldschool", StreamUrl = "https://fed.fmplay.ru:8000/bigtunes-oldschool-32.aac", LogoUrl = "https://fmplay.ru/img/bigtunes-oldschool.jpg" },
                 new RadioStation { Name = "BigTunesRadio - House", StreamUrl = "https://reg.fmplay.ru:8000/bigtunes-house-32.aac", LogoUrl = "https://fmplay.ru/img/bigtunes-house.jpg" },
                 new RadioStation { Name = "Свое FM", StreamUrl = "https://fed.fmplay.ru:8000/svoefm-32.aac", LogoUrl = "https://fmplay.ru/img/svoefm.jpg" },
-                new RadioStation { Name = "АСТВ (Южно Сахалинск)", StreamUrl = "https://reg.fmplay.ru:8000/astv-32.aac", LogoUrl = "https://fmplay.ru/img/astv.jpg" },
+                new RadioStation { Name = "АСТВ (Южно-Сахалинск)", StreamUrl = "https://reg.fmplay.ru:8000/astv-32.aac", LogoUrl = "https://fmplay.ru/img/astv.jpg" },
                 new RadioStation { Name = "Борнео (Воронеж)", StreamUrl = "https://reg.fmplay.ru:8000/borneo-32.aac", LogoUrl = "https://fmplay.ru/img/borneo.jpg" },
-                new RadioStation { Name = "\"L\" радио", StreamUrl = "https://reg.fmplay.ru:8000/lradio-32.aac", LogoUrl = "https://fmplay.ru/img/lradio.jpg" },
+                new RadioStation { Name = "L радио", StreamUrl = "https://reg.fmplay.ru:8000/lradio-32.aac", LogoUrl = "https://fmplay.ru/img/lradio.jpg" },
                 new RadioStation { Name = "Мэтр FM (Йошкар-Ола)", StreamUrl = "https://reg.fmplay.ru:8000/metrfm-32.aac", LogoUrl = "https://fmplay.ru/img/metrfm.jpg" },
                 new RadioStation { Name = "Ника ФМ (Калуга)", StreamUrl = "https://reg.fmplay.ru:8000/nikafm-32.aac", LogoUrl = "https://fmplay.ru/img/nikafm.jpg" },
                 new RadioStation { Name = "Первое радио Кубани (Краснодар)", StreamUrl = "https://reg.fmplay.ru:8000/pervoe-32.aac", LogoUrl = "https://fmplay.ru/img/pervoe.jpg" },
@@ -218,7 +242,7 @@ namespace RodnikiRadio
                 new RadioStation { Name = "Радио Восток России", StreamUrl = "https://reg.fmplay.ru:8000/vostoknews-32.aac", LogoUrl = "https://fmplay.ru/img/vostoknews.jpg" },
                 new RadioStation { Name = "Радио Фантастики", StreamUrl = "https://reg.fmplay.ru:8000/fantasyradio-32.aac", LogoUrl = "https://fmplay.ru/img/fantasyradio.jpg" },
                 new RadioStation { Name = "MusiQ", StreamUrl = "https://reg.fmplay.ru:8000/musiq-32.aac", LogoUrl = "https://fmplay.ru/img/musiq.jpg" },
-                new RadioStation { Name = "Православное радио «Воскресение»", StreamUrl = "https://reg.fmplay.ru:8000/voskresenie-32.aac", LogoUrl = "https://fmplay.ru/img/voskresenie.jpg" },
+                new RadioStation { Name = "Православное радио Воскресение", StreamUrl = "https://reg.fmplay.ru:8000/voskresenie-32.aac", LogoUrl = "https://fmplay.ru/img/voskresenie.jpg" },
                 new RadioStation { Name = "Русская Волна", StreamUrl = "https://reg.fmplay.ru:8000/ruwave-32.aac", LogoUrl = "https://fmplay.ru/img/ruwave.jpg" },
                 new RadioStation { Name = "Fitness Radio", StreamUrl = "https://reg.fmplay.ru:8000/fitnessradio-32.aac", LogoUrl = "https://fmplay.ru/img/fitnessradio.jpg" },
                 new RadioStation { Name = "Таврия", StreamUrl = "https://reg.fmplay.ru:8000/tavriya-32.aac", LogoUrl = "https://fmplay.ru/img/tavriya.jpg" }
@@ -227,41 +251,62 @@ namespace RodnikiRadio
 
         private async void RadioList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (RadioList.SelectedItem is RadioStation selected)
+            if (!(RadioList.SelectedItem is RadioStation selected)) return;
+
+            // Отменяем предыдущий поток если был
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            _mediaPlayer.Source = null;
+
+            try
             {
-                try
-                {
-                    StatusText.Text = "Подключение...";
+                StatusText.Text = "Подключение: " + selected.Name;
 
-                    var uri = new Uri(selected.StreamUrl);
+                var uri = new Uri(selected.StreamUrl);
 
-                    // HttpClient с User-Agent — обходит блокировку нестандартных портов
-                    var httpClient = new HttpClient();
-                    httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
+                // Шаг 1: делаем HTTP запрос через Windows.Web.Http.HttpClient
+                // с HttpBaseProtocolFilter — это единственный способ в UWP
+                // обойти блокировку нестандартных портов (8000, 8007, 8040...)
+                var filter = new HttpBaseProtocolFilter();
+                filter.AllowAutoRedirect = true;
+                filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
+                filter.CacheControl.WriteBehavior = HttpCacheWriteBehavior.NoCache;
 
-                    // AdaptiveMediaSource корректно работает с HTTPS на портах 8000, 8040 и т.д.
-                    var result = await AdaptiveMediaSource.CreateFromUriAsync(uri, httpClient);
+                var httpClient = new HttpClient(filter);
+                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
+                httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Accept", "*/*");
+                httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Icy-MetaData", "1");
 
-                    MediaSource source;
-                    if (result.Status == AdaptiveMediaSourceCreationStatus.Success)
-                    {
-                        source = MediaSource.CreateFromAdaptiveMediaSource(result.MediaSource);
-                    }
-                    else
-                    {
-                        // Fallback для прямых AAC/MP3 потоков без манифеста
-                        source = MediaSource.CreateFromUri(uri);
-                    }
+                // Шаг 2: получаем поток с сервера
+                var response = await httpClient.GetAsync(
+                    uri,
+                    HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
 
-                    _mediaPlayer.Source = source;
-                    UpdateDisplayInfo(selected.Name);
-                    _mediaPlayer.Play();
-                    StatusText.Text = "Играет: " + selected.Name;
-                }
-                catch (Exception ex)
-                {
-                    StatusText.Text = "Ошибка подключения: " + ex.Message;
-                }
+                // Шаг 3: получаем IInputStream и оборачиваем в RandomAccessStream
+                var inputStream = await response.Content.ReadAsInputStreamAsync();
+                var randomStream = inputStream.AsStreamForRead().AsRandomAccessStream();
+
+                // Шаг 4: определяем Content-Type для MediaSource
+                string contentType = "audio/aac";
+                if (response.Content.Headers.ContentType != null)
+                    contentType = response.Content.Headers.ContentType.MediaType ?? "audio/aac";
+
+                // Шаг 5: создаём MediaSource из потока — обходит все ограничения UWP
+                var source = MediaSource.CreateFromStream(randomStream, contentType);
+
+                _mediaPlayer.Source = source;
+                UpdateDisplayInfo(selected.Name);
+                _mediaPlayer.Play();
+                StatusText.Text = "Играет: " + selected.Name;
+            }
+            catch (OperationCanceledException)
+            {
+                // Пользователь выбрал другую станцию — нормально
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Ошибка: " + ex.Message;
             }
         }
 
