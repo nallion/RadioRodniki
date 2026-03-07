@@ -146,6 +146,8 @@ namespace RodnikiRadio
         private List<RadioStation> Stations;
         private RadioProxy _proxy;
         private CancellationTokenSource _cts;
+        private DispatcherTimer _playTimer;
+        private DateTimeOffset _playStartTime;
 
         private const string USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
@@ -165,6 +167,14 @@ namespace RodnikiRadio
             smtc.IsEnabled = true;
             smtc.IsPlayEnabled = true;
             smtc.IsPauseEnabled = true;
+            smtc.IsPreviousEnabled = true;
+            smtc.IsNextEnabled = true;
+            smtc.ButtonPressed += Smtc_ButtonPressed;
+
+            // Таймер — тикает каждую секунду, обновляет TimerText
+            _playTimer = new DispatcherTimer();
+            _playTimer.Interval = TimeSpan.FromSeconds(1);
+            _playTimer.Tick += PlayTimer_Tick;
 
             LoadStations();
             RadioList.ItemsSource = Stations;
@@ -392,10 +402,13 @@ namespace RodnikiRadio
                 UpdateDisplayInfo(selected.Name);
                 _mediaPlayer.Play();
                 StatusText.Text = "Играет: " + selected.Name;
+                _playStartTime = DateTimeOffset.Now;
+                _playTimer.Start();
             }
             catch (OperationCanceledException)
             {
                 // Пользователь переключил станцию
+                _playTimer.Stop();
             }
             catch (Exception ex)
             {
@@ -413,7 +426,49 @@ namespace RodnikiRadio
             updater.Update();
         }
 
+        private void PlayTimer_Tick(object sender, object e)
+        {
+            var elapsed = DateTimeOffset.Now - _playStartTime;
+            TimerText.Text = elapsed.ToString(@"hh\:mm\:ss");
+        }
+
+        private void Smtc_ButtonPressed(
+            SystemMediaTransportControls sender,
+            SystemMediaTransportControlsButtonPressedEventArgs args)
+        {
+            // SMTC приходит из фонового потока — диспетчеризуем на UI
+            var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                switch (args.Button)
+                {
+                    case SystemMediaTransportControlsButton.Next:
+                        NavigateStation(+1);
+                        break;
+                    case SystemMediaTransportControlsButton.Previous:
+                        NavigateStation(-1);
+                        break;
+                    case SystemMediaTransportControlsButton.Play:
+                        _mediaPlayer.Play();
+                        break;
+                    case SystemMediaTransportControlsButton.Pause:
+                        _mediaPlayer.Pause();
+                        break;
+                }
+            });
+        }
+
+        private void NavigateStation(int direction)
+        {
+            if (Stations == null || Stations.Count == 0) return;
+            int current = RadioList.SelectedIndex;
+            int next = (current + direction + Stations.Count) % Stations.Count;
+            RadioList.SelectedIndex = next;
+            RadioList.ScrollIntoView(RadioList.SelectedItem);
+        }
+
         private void PlayButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Play();
         private void PauseButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Pause();
+        private void PrevButton_Click(object sender, RoutedEventArgs e) => NavigateStation(-1);
+        private void NextButton_Click(object sender, RoutedEventArgs e) => NavigateStation(+1);
     }
 }
