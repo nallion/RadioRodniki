@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.UI.Core;
@@ -8,9 +9,9 @@ using Windows.UI.Xaml.Controls;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
+using Windows.Networking;
+using Windows.Networking.Sockets;
 using Windows.Storage.Streams;
-using Windows.Web.Http;
-using Windows.Web.Http.Filters;
 
 namespace RodnikiRadio
 {
@@ -21,10 +22,129 @@ namespace RodnikiRadio
         public string LogoUrl { get; set; }
     }
 
+    /// <summary>
+    /// Локальный HTTP-прокси на базе StreamSocket.
+    /// StreamSocket в UWP не имеет ограничений App Container на порты —
+    /// он работает как сырой TCP и может подключаться к любому хосту/порту.
+    /// Слушаем на 127.0.0.1:случайный_порт, MediaPlayer играет с localhost.
+    /// </summary>
+    public class RadioProxy : IDisposable
+    {
+        private StreamSocketListener _listener;
+        private CancellationTokenSource _cts;
+        private string _targetHost;
+        private string _targetPort;
+        private string _targetPath;
+        private int _localPort;
+
+        public int LocalPort => _localPort;
+
+        public async Task StartAsync(string url)
+        {
+            Stop();
+            _cts = new CancellationTokenSource();
+
+            // Парсим URL вручную — Uri в UWP не даёт Host без схемы
+            var uri = new Uri(url);
+            _targetHost = uri.Host;
+            _targetPort = uri.Port > 0 ? uri.Port.ToString() : "80";
+            _targetPath = uri.PathAndQuery;
+
+            _listener = new StreamSocketListener();
+            _listener.ConnectionReceived += OnConnectionReceived;
+
+            // Биндимся на случайный порт на localhost
+            await _listener.BindServiceNameAsync("0");
+            _localPort = int.Parse(_listener.Information.LocalPort);
+        }
+
+        public void Stop()
+        {
+            _cts?.Cancel();
+            _listener?.Dispose();
+            _listener = null;
+        }
+
+        public void Dispose() => Stop();
+
+        private async void OnConnectionReceived(
+            StreamSocketListener sender,
+            StreamSocketListenerConnectionReceivedEventArgs args)
+        {
+            var ct = _cts?.Token ?? CancellationToken.None;
+            try
+            {
+                using (var clientSocket = args.Socket)
+                using (var serverSocket = new StreamSocket())
+                {
+                    // Подключаемся к реальному радиосерверу через StreamSocket —
+                    // это сырой TCP, App Container его не блокирует
+                    await serverSocket.ConnectAsync(
+                        new HostName(_targetHost),
+                        _targetPort,
+                        SocketProtectionLevel.PlainSocket);
+
+                    // Отправляем HTTP GET запрос на сервер
+                    var request =
+                        $"GET {_targetPath} HTTP/1.0\r\n" +
+                        $"Host: {_targetHost}\r\n" +
+                        "User-Agent: Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0\r\n" +
+                        "Accept: */*\r\n" +
+                        "Icy-MetaData: 0\r\n" +
+                        "Connection: close\r\n\r\n";
+
+                    var requestBytes = System.Text.Encoding.ASCII.GetBytes(request);
+                    await serverSocket.OutputStream.WriteAsync(requestBytes.AsBuffer());
+
+                    // Проксируем поток от сервера к MediaPlayer в двух направлениях
+                    var serverToClient = PipeAsync(
+                        serverSocket.InputStream,
+                        clientSocket.OutputStream,
+                        ct);
+
+                    var clientToServer = PipeAsync(
+                        clientSocket.InputStream,
+                        serverSocket.OutputStream,
+                        ct);
+
+                    await Task.WhenAny(serverToClient, clientToServer);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception) { }
+        }
+
+        private async Task PipeAsync(
+            IInputStream input,
+            IOutputStream output,
+            CancellationToken ct)
+        {
+            const uint bufferSize = 65536; // 64 KB
+            var buffer = new Windows.Storage.Streams.Buffer(bufferSize);
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    var result = await input.ReadAsync(
+                        buffer, bufferSize, InputStreamOptions.Partial)
+                        .AsTask(ct);
+
+                    if (result.Length == 0) break;
+
+                    await output.WriteAsync(result).AsTask(ct);
+                    await output.FlushAsync().AsTask(ct);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception) { }
+        }
+    }
+
     public sealed partial class MainPage : Page
     {
         private MediaPlayer _mediaPlayer;
         private List<RadioStation> Stations;
+        private RadioProxy _proxy;
         private CancellationTokenSource _cts;
 
         private const string USER_AGENT =
@@ -35,6 +155,8 @@ namespace RodnikiRadio
         public MainPage()
         {
             this.InitializeComponent();
+
+            _proxy = new RadioProxy();
 
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
@@ -234,52 +356,6 @@ namespace RodnikiRadio
             };
         }
 
-        // Качаем поток через наш HttpClient и пишем в InMemoryRandomAccessStream.
-        // Это единственный способ обойти блокировку HTTP на нестандартных портах в UWP App Container.
-        private async Task StreamToPlayerAsync(string url, CancellationToken ct)
-        {
-            var filter = new HttpBaseProtocolFilter();
-            filter.AllowAutoRedirect = true;
-            filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
-            filter.CacheControl.WriteBehavior = HttpCacheWriteBehavior.NoCache;
-
-            var httpClient = new HttpClient(filter);
-            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
-            httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Accept", "*/*");
-            httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Icy-MetaData", "1");
-
-            var response = await httpClient.GetAsync(
-                new Uri(url),
-                HttpCompletionOption.ResponseHeadersRead);
-            response.EnsureSuccessStatusCode();
-
-            string contentType = "audio/aac";
-            if (response.Content.Headers.ContentType != null)
-                contentType = response.Content.Headers.ContentType.MediaType ?? "audio/aac";
-
-            // Читаем первые 512 КБ в буфер — этого достаточно чтобы MediaPlayer
-            // определил формат и начал воспроизведение, дальше он играет из буфера
-            var inputStream = await response.Content.ReadAsInputStreamAsync();
-            var memStream = new InMemoryRandomAccessStream();
-            var buffer = new Windows.Storage.Streams.Buffer(524288); // 512 KB
-
-            ct.ThrowIfCancellationRequested();
-            await inputStream.ReadAsync(buffer, buffer.Capacity, InputStreamOptions.Partial);
-            await memStream.WriteAsync(buffer);
-            memStream.Seek(0);
-
-            ct.ThrowIfCancellationRequested();
-
-            var source = MediaSource.CreateFromStream(memStream, contentType);
-
-            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher
-                .RunAsync(CoreDispatcherPriority.Normal, () =>
-                {
-                    _mediaPlayer.Source = source;
-                    _mediaPlayer.Play();
-                });
-        }
-
         private async void RadioList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!(RadioList.SelectedItem is RadioStation selected)) return;
@@ -292,13 +368,34 @@ namespace RodnikiRadio
 
             try
             {
-                await StreamToPlayerAsync(selected.StreamUrl, _cts.Token);
+                var uri = new Uri(selected.StreamUrl);
+                var ct = _cts.Token;
+
+                // Для URL на нестандартных портах используем локальный прокси
+                bool needsProxy = uri.Port != 80 && uri.Port != 443 &&
+                                  uri.Scheme == "http";
+
+                if (needsProxy)
+                {
+                    await _proxy.StartAsync(selected.StreamUrl);
+                    ct.ThrowIfCancellationRequested();
+                    // MediaPlayer играет с localhost — стандартный порт, никаких ограничений
+                    var localUri = new Uri($"http://127.0.0.1:{_proxy.LocalPort}/stream");
+                    _mediaPlayer.Source = MediaSource.CreateFromUri(localUri);
+                }
+                else
+                {
+                    _proxy.Stop();
+                    _mediaPlayer.Source = MediaSource.CreateFromUri(uri);
+                }
+
                 UpdateDisplayInfo(selected.Name);
+                _mediaPlayer.Play();
                 StatusText.Text = "Играет: " + selected.Name;
             }
             catch (OperationCanceledException)
             {
-                // Пользователь переключил станцию — нормально
+                // Пользователь переключил станцию
             }
             catch (Exception ex)
             {
