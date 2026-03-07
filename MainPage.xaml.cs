@@ -161,7 +161,8 @@ namespace RodnikiRadio
             _proxy = new RadioProxy();
 
             _mediaPlayer = new MediaPlayer();
-            _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
+            // BackgroundCapableMedia — обязательно для воспроизведения при заблокированном экране
+            _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.BackgroundCapableMedia;
 
             // Используем SMTC самого MediaPlayer — он регистрирует сессию
             // воспроизведения в системе и показывает плеер на экране блокировки.
@@ -176,10 +177,13 @@ namespace RodnikiRadio
             smtc.IsNextEnabled = true;
             smtc.ButtonPressed += Smtc_ButtonPressed;
 
-            // Отключаем автоматическую обработку Next/Prev в CommandManager —
-            // он их всё равно не умеет (нет плейлиста), но перехватывает события.
-            _mediaPlayer.CommandManager.NextReceived += (cm, e) => { };
-            _mediaPlayer.CommandManager.PreviousReceived += (cm, e) => { };
+            // CommandManager перехватывает Next/Prev раньше чем ButtonPressed —
+            // отключаем его обработку этих команд через NotifyUser (возвращает Handled=false)
+            // чтобы событие дошло до нашего Smtc_ButtonPressed.
+            _mediaPlayer.CommandManager.NextBehavior.EnablingRule = MediaCommandEnablingRule.Always;
+            _mediaPlayer.CommandManager.PreviousBehavior.EnablingRule = MediaCommandEnablingRule.Always;
+            _mediaPlayer.CommandManager.NextReceived += (cm, args) => args.Handled = false;
+            _mediaPlayer.CommandManager.PreviousReceived += (cm, args) => args.Handled = false;
 
             // Таймер — тикает каждую секунду, обновляет TimerText
             _playTimer = new DispatcherTimer();
