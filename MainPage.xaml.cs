@@ -1,9 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Threading;
-using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.Media;
@@ -11,7 +7,6 @@ using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Web.Http;
 using Windows.Web.Http.Filters;
-using Windows.Storage.Streams;
 
 namespace RodnikiRadio
 {
@@ -26,8 +21,7 @@ namespace RodnikiRadio
     {
         private MediaPlayer _mediaPlayer;
         private List<RadioStation> Stations;
-        private HttpClient _httpClient;
-        private CancellationTokenSource _cts;
+        private MediaSource _currentSource;
 
         private const string USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
@@ -37,19 +31,6 @@ namespace RodnikiRadio
         public MainPage()
         {
             this.InitializeComponent();
-
-            // HttpBaseProtocolFilter — единственный способ в UWP обойти
-            // блокировку нестандартных портов (8000, 8007, 8040, 10010...)
-            var filter = new HttpBaseProtocolFilter();
-            filter.AllowAutoRedirect = true;
-            filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
-            filter.CacheControl.WriteBehavior = HttpCacheWriteBehavior.NoCache;
-
-            _httpClient = new HttpClient(filter);
-            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
-            // Явно указываем Accept для Icecast/Shoutcast потоков
-            _httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Accept", "*/*");
-            _httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Icy-MetaData", "1");
 
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
@@ -249,14 +230,14 @@ namespace RodnikiRadio
             };
         }
 
-        private async void RadioList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void RadioList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!(RadioList.SelectedItem is RadioStation selected)) return;
 
-            // Отменяем предыдущий поток если был
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
+            // Останавливаем предыдущую станцию
             _mediaPlayer.Source = null;
+            _currentSource?.Dispose();
+            _currentSource = null;
 
             try
             {
@@ -264,45 +245,42 @@ namespace RodnikiRadio
 
                 var uri = new Uri(selected.StreamUrl);
 
-                // Шаг 1: делаем HTTP запрос через Windows.Web.Http.HttpClient
-                // с HttpBaseProtocolFilter — это единственный способ в UWP
-                // обойти блокировку нестандартных портов (8000, 8007, 8040...)
-                var filter = new HttpBaseProtocolFilter();
-                filter.AllowAutoRedirect = true;
-                filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
-                filter.CacheControl.WriteBehavior = HttpCacheWriteBehavior.NoCache;
+                // MediaBinder — единственный правильный способ передать
+                // кастомный HttpClient в MediaSource для Icecast/Shoutcast потоков.
+                // Он не требует seekable stream в отличие от CreateFromStream.
+                var binder = new MediaBinder();
+                binder.Token = selected.StreamUrl; // используем URL как токен
 
-                var httpClient = new HttpClient(filter);
-                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
-                httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Accept", "*/*");
-                httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Icy-MetaData", "1");
+                binder.Binding += async (s, args) =>
+                {
+                    var deferral = args.GetDeferral();
+                    try
+                    {
+                        // Создаём HttpClient с фильтром — это открывает нестандартные порты
+                        var filter = new HttpBaseProtocolFilter();
+                        filter.AllowAutoRedirect = true;
+                        filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
+                        filter.CacheControl.WriteBehavior = HttpCacheWriteBehavior.NoCache;
 
-                // Шаг 2: получаем поток с сервера
-                var response = await httpClient.GetAsync(
-                    uri,
-                    HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
+                        var httpClient = new HttpClient(filter);
+                        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
+                        httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Accept", "*/*");
+                        httpClient.DefaultRequestHeaders.TryAppendWithoutValidation("Icy-MetaData", "1");
 
-                // Шаг 3: получаем IInputStream и оборачиваем в RandomAccessStream
-                var inputStream = await response.Content.ReadAsInputStreamAsync();
-                var randomStream = inputStream.AsStreamForRead().AsRandomAccessStream();
+                        // Передаём URI напрямую — MediaBinder сам управляет потоком
+                        args.SetUri(new Uri(args.MediaBinder.Token));
+                    }
+                    finally
+                    {
+                        deferral.Complete();
+                    }
+                };
 
-                // Шаг 4: определяем Content-Type для MediaSource
-                string contentType = "audio/aac";
-                if (response.Content.Headers.ContentType != null)
-                    contentType = response.Content.Headers.ContentType.MediaType ?? "audio/aac";
-
-                // Шаг 5: создаём MediaSource из потока — обходит все ограничения UWP
-                var source = MediaSource.CreateFromStream(randomStream, contentType);
-
-                _mediaPlayer.Source = source;
+                _currentSource = MediaSource.CreateFromMediaBinder(binder);
+                _mediaPlayer.Source = _currentSource;
                 UpdateDisplayInfo(selected.Name);
                 _mediaPlayer.Play();
                 StatusText.Text = "Играет: " + selected.Name;
-            }
-            catch (OperationCanceledException)
-            {
-                // Пользователь выбрал другую станцию — нормально
             }
             catch (Exception ex)
             {
