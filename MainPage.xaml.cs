@@ -479,8 +479,19 @@ namespace RodnikiRadio
             RadioList.ScrollIntoView(RadioList.SelectedItem);
         }
 
-        private void PlayButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Play();
-        private void PauseButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Pause();
+        private void PlayButton_Click(object sender, RoutedEventArgs e)
+        {
+            _mediaPlayer.Play();
+            _playStartTime = DateTimeOffset.Now;
+            _playTimer.Start();
+        }
+
+        private void PauseButton_Click(object sender, RoutedEventArgs e)
+        {
+            _mediaPlayer.Pause();
+            _playTimer.Stop();
+            TimerText.Text = "";
+        }
 
     }
 }
