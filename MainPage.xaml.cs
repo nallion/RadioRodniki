@@ -409,7 +409,7 @@ namespace RodnikiRadio
             var updater = smtc.DisplayUpdater;
             updater.Type = MediaPlaybackType.Music;
             updater.MusicProperties.Title = title;
-            updater.MusicProperties.Artist = "FM Play Russia";
+            updater.MusicProperties.Artist = "FM PLAY Россия";
             updater.Update();
         }
 

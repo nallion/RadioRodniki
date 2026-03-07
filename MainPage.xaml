@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <Border Background="#1D1D1D" Padding="15">
-            <TextBlock Text="FM PLAY RUSSIA" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+            <TextBlock Text="FM PLAY Россия" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
         </Border>
 
         <ListView x:Name="RadioList" Grid.Row="1" SelectionChanged="RadioList_SelectionChanged" Margin="10">
@@ -40,8 +40,8 @@
                            FontFamily="Consolas"/>
             </ScrollViewer>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Content="PLAY" Click="PlayButton_Click" Width="100" Margin="10"/>
-                <Button Content="PAUSE" Click="PauseButton_Click" Width="100" Margin="10"/>
+                <Button Content="Играть" Click="PlayButton_Click" Width="100" Margin="10"/>
+                <Button Content="Пауза" Click="PauseButton_Click" Width="100" Margin="10"/>
             </StackPanel>
         </StackPanel>
     </Grid>
