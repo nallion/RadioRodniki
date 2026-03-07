@@ -161,8 +161,7 @@ namespace RodnikiRadio
             _proxy = new RadioProxy();
 
             _mediaPlayer = new MediaPlayer();
-            // BackgroundCapableMedia — обязательно для воспроизведения при заблокированном экране
-            _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.BackgroundCapableMedia;
+            _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
 
             // Используем SMTC самого MediaPlayer — он регистрирует сессию
             // воспроизведения в системе и показывает плеер на экране блокировки.
