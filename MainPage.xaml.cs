@@ -163,13 +163,20 @@ namespace RodnikiRadio
             _mediaPlayer = new MediaPlayer();
             _mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
 
-            var smtc = _mediaPlayer.SystemMediaTransportControls;
+            // GetForCurrentView() — единственный способ получить SMTC
+            // который реально работает с экраном блокировки в UWP.
+            // _mediaPlayer.SystemMediaTransportControls не перехватывает
+            // нажатия кнопок на экране блокировки без BackgroundTask.
+            var smtc = SystemMediaTransportControls.GetForCurrentView();
             smtc.IsEnabled = true;
             smtc.IsPlayEnabled = true;
             smtc.IsPauseEnabled = true;
             smtc.IsPreviousEnabled = true;
             smtc.IsNextEnabled = true;
             smtc.ButtonPressed += Smtc_ButtonPressed;
+
+            // Отвязываем встроенный SMTC медиаплеера чтобы не было конфликта
+            _mediaPlayer.CommandManager.IsEnabled = false;
 
             // Таймер — тикает каждую секунду, обновляет TimerText
             _playTimer = new DispatcherTimer();
@@ -418,7 +425,7 @@ namespace RodnikiRadio
 
         private void UpdateDisplayInfo(string title)
         {
-            var smtc = _mediaPlayer.SystemMediaTransportControls;
+            var smtc = SystemMediaTransportControls.GetForCurrentView();
             var updater = smtc.DisplayUpdater;
             updater.Type = MediaPlaybackType.Music;
             updater.MusicProperties.Title = title;
@@ -468,7 +475,6 @@ namespace RodnikiRadio
 
         private void PlayButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Play();
         private void PauseButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Pause();
-        private void PrevButton_Click(object sender, RoutedEventArgs e) => NavigateStation(-1);
-        private void NextButton_Click(object sender, RoutedEventArgs e) => NavigateStation(+1);
+
     }
 }

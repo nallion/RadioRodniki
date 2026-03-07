@@ -48,10 +48,8 @@
                        HorizontalAlignment="Center"
                        Margin="0,0,0,10"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Content="&#x23EE;" Click="PrevButton_Click" Width="70" Margin="5" FontSize="18"/>
-                <Button Content="Играть" Click="PlayButton_Click" Width="100" Margin="5"/>
-                <Button Content="Пауза" Click="PauseButton_Click" Width="100" Margin="5"/>
-                <Button Content="&#x23ED;" Click="NextButton_Click" Width="70" Margin="5" FontSize="18"/>
+                <Button Content="Играть" Click="PlayButton_Click" Width="100" Margin="10"/>
+                <Button Content="Пауза" Click="PauseButton_Click" Width="100" Margin="10"/>
             </StackPanel>
         </StackPanel>
     </Grid>
