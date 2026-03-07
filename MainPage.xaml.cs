@@ -306,7 +306,7 @@ namespace RodnikiRadio
             }
             catch (Exception ex)
             {
-                StatusText.Text = "Ошибка: " + ex.Message;
+                StatusText.Text = "Ошибка: " + ex.ToString();
             }
         }
 
