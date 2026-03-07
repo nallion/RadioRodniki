@@ -11,7 +11,7 @@
   <mp:PhoneIdentity PhoneProductId="a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Радио Родники</DisplayName>
+    <DisplayName>FMPLAY Россия</DisplayName>
     <PublisherDisplayName>AppVeyorSign</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -27,10 +27,10 @@
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="RodnikiRadio.App">
       <uap:VisualElements
-        DisplayName="Радио Родники"
+        DisplayName="FMPLAY Россия"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png"
-        Description="Rodniki Radio Player"
+        Description="FMPLAY Russia"
         BackgroundColor="transparent">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
